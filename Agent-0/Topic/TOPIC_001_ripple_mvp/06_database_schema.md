@@ -708,11 +708,176 @@ milestone-banners/{user_id}/{milestone_id}/{filename}
 
 ---
 
-## Vault Setup (for Future AI Integration)
+## Edge Functions
+
+### send-notification (FCM Push)
+
+Edge Function untuk mengirim push notification via Firebase Cloud Messaging v1 API.
+
+**Prerequisites:**
+1. Generate Firebase Service Account Key dari Firebase Console
+2. Store sebagai Supabase Secret: `FIREBASE_SERVICE_ACCOUNT`
+
+```typescript
+// supabase/functions/send-notification/index.ts
+
+import { createClient } from 'npm:@supabase/supabase-js@2'
+import { JWT } from 'npm:google-auth-library@9'
+
+// Get service account from environment
+const serviceAccountJson = Deno.env.get('FIREBASE_SERVICE_ACCOUNT')
+const serviceAccount = JSON.parse(serviceAccountJson!)
+
+interface NotificationPayload {
+  user_id: string
+  title: string
+  body: string
+  data?: Record<string, string>
+}
+
+// Get OAuth2 access token for FCM v1 API
+async function getAccessToken(): Promise<string> {
+  const jwtClient = new JWT({
+    email: serviceAccount.client_email,
+    key: serviceAccount.private_key,
+    scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
+  })
+  
+  const tokens = await jwtClient.authorize()
+  return tokens.access_token!
+}
+
+// Initialize Supabase client
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+)
+
+Deno.serve(async (req) => {
+  try {
+    const payload: NotificationPayload = await req.json()
+    
+    console.log(`Sending notification to user: ${payload.user_id}`)
+    
+    // Get all active FCM tokens for this user
+    const { data: devices, error: dbError } = await supabase
+      .from('user_devices')
+      .select('fcm_token')
+      .eq('user_id', payload.user_id)
+      .eq('is_active', true)
+    
+    if (dbError) {
+      console.error('Database error:', dbError)
+      return new Response(JSON.stringify({ error: dbError.message }), { status: 500 })
+    }
+    
+    if (!devices || devices.length === 0) {
+      console.log('No active devices found for user')
+      return new Response(JSON.stringify({ error: 'No devices found' }), { status: 404 })
+    }
+    
+    // Get FCM access token
+    const accessToken = await getAccessToken()
+    
+    // Send to all user devices
+    const results = await Promise.all(
+      devices.map(async (device) => {
+        try {
+          const response = await fetch(
+            `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({
+                message: {
+                  token: device.fcm_token,
+                  notification: {
+                    title: payload.title,
+                    body: payload.body,
+                  },
+                  data: payload.data || {},
+                  android: {
+                    priority: 'high',
+                    notification: {
+                      sound: 'default',
+                      click_action: 'FLUTTER_NOTIFICATION_CLICK',
+                      channel_id: 'todo_reminders',
+                    },
+                  },
+                  apns: {
+                    payload: {
+                      aps: {
+                        sound: 'default',
+                        badge: 1,
+                      },
+                    },
+                  },
+                },
+              }),
+            }
+          )
+          
+          const result = await response.json()
+          
+          // Handle invalid token (auto-cleanup stale tokens)
+          if (result.error?.code === 'messaging/registration-token-not-registered') {
+            await supabase
+              .from('user_devices')
+              .update({ is_active: false })
+              .eq('fcm_token', device.fcm_token)
+            
+            console.log(`Marked stale token as inactive`)
+          }
+          
+          return { success: !result.error, result }
+        } catch (err) {
+          return { success: false, error: err.message }
+        }
+      })
+    )
+    
+    return new Response(JSON.stringify({ success: true, results }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    
+  } catch (error) {
+    console.error('Error:', error)
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  }
+})
+```
+
+**Deploy:**
+```bash
+supabase functions deploy send-notification --no-verify-jwt
+```
+
+---
+
+## Vault Setup
 
 ```sql
--- Store API keys securely for future AI features
--- Run this manually when ready to add AI
+-- ============================================
+-- SECRETS: Store sensitive keys in Vault
+-- ============================================
+
+-- For FCM Push Notifications (cron job calls)
+SELECT vault.create_secret(
+    'project_url',
+    'https://YOUR_PROJECT_REF.supabase.co',
+    'Supabase project URL for Edge Function calls'
+);
+
+SELECT vault.create_secret(
+    'service_role_key',
+    'YOUR_SERVICE_ROLE_KEY',
+    'Service role key for Edge Function authorization'
+);
+
+-- For Future AI Integration
 SELECT vault.create_secret(
     'openai_api_key',
     'sk-your-api-key-here',
@@ -720,7 +885,7 @@ SELECT vault.create_secret(
 );
 
 -- Access in Edge Functions:
--- SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'openai_api_key';
+-- SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url';
 ```
 
 ---

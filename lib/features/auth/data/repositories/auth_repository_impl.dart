@@ -2,33 +2,57 @@ import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
 
-/// Implementation of AuthRepository
 class AuthRepositoryImpl implements AuthRepository {
-  final AuthRemoteDataSource remoteDataSource;
+  final AuthRemoteDataSource _remoteDataSource;
 
   AuthRepositoryImpl({
-    required this.remoteDataSource,
-  });
+    required AuthRemoteDataSource remoteDataSource,
+  }) : _remoteDataSource = remoteDataSource;
 
   @override
-  Future<UserEntity> signInWithGoogle() async {
-    final userModel = await remoteDataSource.signInWithGoogle();
-    return userModel;
+  Stream<UserEntity> get user {
+    return _remoteDataSource.authStateChanges.map((model) {
+      if (model == null) return UserEntity.empty;
+      return model.toEntity();
+    });
+  }
+
+  @override
+  UserEntity get currentUser {
+    final model = _remoteDataSource.currentUserSync;
+    if (model == null) return UserEntity.empty;
+    return model.toEntity();
+  }
+
+  @override
+  Future<void> signInWithGoogle() async {
+    await _remoteDataSource.signInWithGoogle();
   }
 
   @override
   Future<void> signOut() async {
-    await remoteDataSource.signOut();
+    await _remoteDataSource.signOut();
   }
 
   @override
-  Future<UserEntity?> getCurrentUser() async {
-    final userModel = await remoteDataSource.getCurrentUser();
-    return userModel;
+  Future<void> signUpWithEmail(String email, String password) async {
+    await _remoteDataSource.signUpWithEmail(email, password);
   }
 
   @override
-  Stream<UserEntity?> get authStateChanges {
-    return remoteDataSource.authStateChanges;
+  Future<UserEntity> signInWithEmail(String email, String password) async {
+    final model = await _remoteDataSource.signInWithEmail(email, password);
+    return model.toEntity();
+  }
+
+  @override
+  Future<UserEntity> verifyOtp(String email, String token) async {
+    final model = await _remoteDataSource.verifyOtp(email, token);
+    return model.toEntity();
+  }
+
+  @override
+  Future<void> resendConfirmationEmail(String email) async {
+    await _remoteDataSource.resendConfirmationEmail(email);
   }
 }

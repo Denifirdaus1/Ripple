@@ -17,8 +17,23 @@ abstract class AuthRemoteDataSource {
   /// Get the currently authenticated user
   Future<UserModel?> getCurrentUser();
 
+  /// Get the currently authenticated user synchronously
+  UserModel? get currentUserSync;
+
   /// Stream of auth state changes
   Stream<UserModel?> get authStateChanges;
+
+  /// Sign up with email and password
+  Future<void> signUpWithEmail(String email, String password);
+
+  /// Sign in with email and password
+  Future<UserModel> signInWithEmail(String email, String password);
+
+  /// Verify OTP code sent to email
+  Future<UserModel> verifyOtp(String email, String token);
+
+  /// Resend confirmation email
+  Future<void> resendConfirmationEmail(String email);
 }
 
 /// Implementation of AuthRemoteDataSource using Supabase
@@ -104,7 +119,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         throw const AppAuthException('Failed to sign in with Supabase');
       }
 
-      return UserModel.fromSupabaseUser(response.user!.toJson());
+      return UserModel.fromSupabase(response.user!);
     } on AppAuthException {
       rethrow;
     } on GoogleSignInException catch (e) {
@@ -141,10 +156,17 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         return null;
       }
 
-      return UserModel.fromSupabaseUser(user.toJson());
+      return UserModel.fromSupabase(user);
     } catch (e) {
       throw AppAuthException('Failed to get current user: ${e.toString()}');
     }
+  }
+
+  @override
+  UserModel? get currentUserSync {
+    final user = _supabaseClient.auth.currentUser;
+    if (user == null) return null;
+    return UserModel.fromSupabase(user);
   }
 
   @override
@@ -156,7 +178,87 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         return null;
       }
 
-      return UserModel.fromSupabaseUser(user.toJson());
+      return UserModel.fromSupabase(user);
     });
+  }
+
+  @override
+  Future<void> signUpWithEmail(String email, String password) async {
+    try {
+      final response = await _supabaseClient.auth.signUp(
+        email: email,
+        password: password,
+      );
+
+      if (response.user == null) {
+        throw const AppAuthException('Failed to create account');
+      }
+
+      // User created, but needs email verification if "Confirm email" is enabled
+      // The response.session will be null until email is confirmed
+    } on AuthException catch (e) {
+      throw AppAuthException(e.message);
+    } catch (e) {
+      if (e is AppAuthException) rethrow;
+      throw AppAuthException('Sign up failed: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<UserModel> signInWithEmail(String email, String password) async {
+    try {
+      final response = await _supabaseClient.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      if (response.user == null) {
+        throw const AppAuthException('Invalid email or password');
+      }
+
+      return UserModel.fromSupabase(response.user!);
+    } on AuthException catch (e) {
+      throw AppAuthException(e.message);
+    } catch (e) {
+      if (e is AppAuthException) rethrow;
+      throw AppAuthException('Sign in failed: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<UserModel> verifyOtp(String email, String token) async {
+    try {
+      final response = await _supabaseClient.auth.verifyOTP(
+        type: OtpType.signup,
+        email: email,
+        token: token,
+      );
+
+      if (response.user == null) {
+        throw const AppAuthException('Invalid or expired verification code');
+      }
+
+      return UserModel.fromSupabase(response.user!);
+    } on AuthException catch (e) {
+      throw AppAuthException(e.message);
+    } catch (e) {
+      if (e is AppAuthException) rethrow;
+      throw AppAuthException('Verification failed: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> resendConfirmationEmail(String email) async {
+    try {
+      await _supabaseClient.auth.resend(
+        type: OtpType.signup,
+        email: email,
+      );
+    } on AuthException catch (e) {
+      throw AppAuthException(e.message);
+    } catch (e) {
+      if (e is AppAuthException) rethrow;
+      throw AppAuthException('Failed to resend confirmation: ${e.toString()}');
+    }
   }
 }

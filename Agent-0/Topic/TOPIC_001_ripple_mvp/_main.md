@@ -41,8 +41,8 @@ Ripple adalah aplikasi produktivitas terintegrasi AI yang menggabungkan **TodoLi
 | 3 | Fitur Milestone & Life Goals | [03_milestone_goals.md](03_milestone_goals.md) | ✅ Confirmed |
 | 4 | AI Integration | [04_ai_integration.md](04_ai_integration.md) | ⏸️ Post-MVP |
 | 5 | Wireframe & User Flow | [05_wireframe_userflow.md](05_wireframe_userflow.md) | ✅ Approved |
-| 6 | Database Schema Design | [06_database_schema.md](06_database_schema.md) | ✅ Production-Ready |
-| 7 | Push Notifications (FCM) | [07_push_notifications.md](07_push_notifications.md) | ✅ Confirmed |
+| 6 | Database Schema & Backend | [06_database_schema.md](06_database_schema.md) | ✅ Production-Ready |
+| 7 | Push Notifications (Client) | [07_push_notifications.md](07_push_notifications.md) | ✅ Confirmed |
 
 ---
 

@@ -1,79 +1,101 @@
-import 'package:ripple/core/usecases/usecase.dart';
-
-import '../../domain/usecases/get_current_user.dart';
-import '../../domain/usecases/sign_in_with_google.dart';
-import '../../domain/usecases/sign_out.dart';
-import 'auth_event.dart';
-import 'auth_state.dart';
-
+import 'dart:async';
+import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../domain/entities/user_entity.dart';
+import '../../domain/usecases/auth_usecases.dart';
 
-export 'auth_event.dart';
-export 'auth_state.dart';
+// --- Events ---
+abstract class AuthEvent extends Equatable {
+  const AuthEvent();
+  @override
+  List<Object> get props => [];
+}
 
-/// AuthBloc handles authentication state management
+class AuthSubscriptionRequested extends AuthEvent {}
+class AuthLogoutRequested extends AuthEvent {}
+
+class AuthUserChanged extends AuthEvent {
+  final UserEntity user;
+  const AuthUserChanged(this.user);
+  @override
+  List<Object> get props => [user];
+}
+
+// --- States ---
+abstract class AuthState extends Equatable {
+  const AuthState();
+  @override
+  List<Object> get props => [];
+}
+
+class AuthUnknown extends AuthState {
+  const AuthUnknown();
+}
+
+class Authenticated extends AuthState {
+  final UserEntity user;
+  const Authenticated(this.user);
+  @override
+  List<Object> get props => [user];
+}
+
+class Unauthenticated extends AuthState {
+  const Unauthenticated();
+}
+
+class AuthError extends AuthState {
+  final String message;
+  const AuthError(this.message);
+  @override
+  List<Object> get props => [message];
+}
+
+// --- BLoC ---
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  final SignInWithGoogle signInWithGoogle;
-  final SignOut signOut;
-  final GetCurrentUser getCurrentUser;
+  final GetAuthStream _getAuthStream;
+  final SignOut _signOut;
+  StreamSubscription<UserEntity>? _authSubscription;
 
   AuthBloc({
-    required this.signInWithGoogle,
-    required this.signOut,
-    required this.getCurrentUser,
-  }) : super(const AuthInitial()) {
-    on<AuthCheckRequested>(_onAuthCheckRequested);
-    on<GoogleSignInRequested>(_onGoogleSignInRequested);
-    on<SignOutRequested>(_onSignOutRequested);
+    required GetAuthStream getAuthStream,
+    required SignOut signOut,
+  })  : _getAuthStream = getAuthStream,
+        _signOut = signOut,
+        super(const AuthUnknown()) {
+    on<AuthSubscriptionRequested>(_onSubscriptionRequested);
+    on<AuthLogoutRequested>(_onLogoutRequested);
+    on<AuthUserChanged>(_onUserChanged);
   }
 
-  /// Handle checking current authentication status
-  Future<void> _onAuthCheckRequested(
-    AuthCheckRequested event,
+  Future<void> _onSubscriptionRequested(
+    AuthSubscriptionRequested event,
     Emitter<AuthState> emit,
   ) async {
-    emit(const AuthLoading());
-
-    try {
-      final user = await getCurrentUser(NoParams());
-
-      if (user != null) {
-        emit(Authenticated(user));
-      } else {
-        emit(const Unauthenticated());
-      }
-    } catch (e) {
-      emit(AuthError(e.toString()));
-    }
+    await _authSubscription?.cancel();
+    _authSubscription = _getAuthStream().listen(
+      (user) => add(AuthUserChanged(user)),
+      onError: (error) => add(AuthLogoutRequested()), // Simplistic error handling
+    );
   }
 
-  /// Handle Google Sign-In request
-  Future<void> _onGoogleSignInRequested(
-    GoogleSignInRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(const AuthLoading());
-
-    try {
-      final user = await signInWithGoogle(NoParams());
-      emit(Authenticated(user));
-    } catch (e) {
-      emit(AuthError(e.toString()));
-    }
-  }
-
-  /// Handle sign out request
-  Future<void> _onSignOutRequested(
-    SignOutRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(const AuthLoading());
-
-    try {
-      await signOut(NoParams());
+  void _onUserChanged(AuthUserChanged event, Emitter<AuthState> emit) {
+    if (event.user.isEmpty) {
       emit(const Unauthenticated());
-    } catch (e) {
-      emit(AuthError(e.toString()));
+    } else {
+      emit(Authenticated(event.user));
     }
+  }
+
+  void _onLogoutRequested(
+    AuthLogoutRequested event,
+    Emitter<AuthState> emit,
+  ) {
+    unawaited(_signOut());
+  }
+
+  @override
+  Future<void> close() {
+    _authSubscription?.cancel();
+    return super.close();
   }
 }

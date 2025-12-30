@@ -10,6 +10,6 @@ class GetCurrentUser implements UseCase<UserEntity?, NoParams> {
 
   @override
   Future<UserEntity?> call(NoParams params) async {
-    return await repository.getCurrentUser();
+    return repository.currentUser;
   }
 }

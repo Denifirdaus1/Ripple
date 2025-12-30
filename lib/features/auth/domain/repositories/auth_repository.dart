@@ -1,17 +1,14 @@
 import '../entities/user_entity.dart';
 
-/// Auth repository interface (contract)
-/// This defines what the auth repository should do without implementation details
 abstract class AuthRepository {
-  /// Sign in with Google OAuth via Supabase
-  Future<UserEntity> signInWithGoogle();
-
-  /// Sign out the current user
+  Stream<UserEntity> get user;
+  Future<void> signInWithGoogle();
   Future<void> signOut();
+  UserEntity get currentUser;
 
-  /// Get the currently authenticated user
-  Future<UserEntity?> getCurrentUser();
-
-  /// Stream of auth state changes
-  Stream<UserEntity?> get authStateChanges;
+  // Email authentication
+  Future<void> signUpWithEmail(String email, String password);
+  Future<UserEntity> signInWithEmail(String email, String password);
+  Future<UserEntity> verifyOtp(String email, String token);
+  Future<void> resendConfirmationEmail(String email);
 }

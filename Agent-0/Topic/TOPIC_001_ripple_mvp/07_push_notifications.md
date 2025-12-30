@@ -1,7 +1,28 @@
-# Fitur Push Notifications (FCM)
+# Push Notifications (FCM) - Client Setup
 
 **Parent:** [← Kembali ke Main](_main.md)
-**Status:** ✅ Confirmed for MVP
+**Status:** 🔧 In Progress
+**Updated:** 2025-12-30
+
+> [!NOTE]
+> Topic ini hanya berisi **client-side setup** (Flutter & Firebase Console).
+> Untuk **backend** (Edge Functions, Cron Jobs, Database), lihat: [06_database_schema.md](06_database_schema.md)
+
+---
+
+## 📊 Implementation Progress
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Firebase Project | ✅ Done | Project ID: `ripple-66854` |
+| Android App Registration | ✅ Done | Package: `com.ripple.ripple` |
+| `google-services.json` | ✅ Done | Placed in `android/app/` |
+| Gradle Setup | ✅ Done | Google Services plugin added |
+| Flutter Packages | ✅ Done | `firebase_core`, `firebase_messaging` |
+| Firebase Init in `main.dart` | ✅ Done | Background handler configured |
+| Service Account Key | ✅ Done | Downloaded from Firebase Console |
+| iOS Setup | ⏸️ Skipped | Not needed for MVP (Android only) |
+| NotificationService | ✅ Created | `lib/core/services/notification_service.dart` |
 
 ---
 
@@ -9,266 +30,229 @@
 
 Push notifications menggunakan **Firebase Cloud Messaging (FCM)** untuk mengirim reminder ke device user saat jadwal todo tiba.
 
----
-
-## Architecture
+### Architecture Flow
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌──────────────────┐     ┌─────────────┐
-│  Supabase       │     │  Supabase Edge   │     │  Firebase FCM    │     │  User       │
-│  pg_cron/       │────▶│  Function        │────▶│  (delivery)      │────▶│  Device     │
-│  DB Webhook     │     │  (HTTP trigger)  │     │                  │     │  (receive)  │
-└─────────────────┘     └──────────────────┘     └──────────────────┘     └─────────────┘
+┌─────────────┐     ┌───────────────────┐     ┌────────────────┐
+│ Flutter App │────▶│ Firebase Console  │     │ Supabase       │
+│ (Client)    │     │ google-services   │     │ user_devices   │
+└─────────────┘     └───────────────────┘     └────────────────┘
+                                                      │
+                                                      ▼
+┌─────────────┐     ┌───────────────────┐     ┌────────────────┐
+│ User Device │◀────│ FCM Cloud         │◀────│ Edge Function  │
+│ (Receive)   │     │ (Push Delivery)   │     │ (Send via API) │
+└─────────────┘     └───────────────────┘     └────────────────┘
+```
+
+---
+
+## Firebase Console Setup ✅
+
+| Step | Action | Status |
+|------|--------|--------|
+| 1 | Create Firebase Project | ✅ Done (`ripple-66854`) |
+| 2 | Add Android App | ✅ Done (`com.ripple.ripple`) |
+| 3 | Download `google-services.json` | ✅ Done |
+| 4 | Enable Cloud Messaging | ✅ Done |
+| 5 | Generate Service Account Key | ✅ Done (untuk Edge Function) |
+
+**Firebase Project Info:**
+- **Project ID:** `ripple-66854`
+- **Project Number:** `1072699555742`
+- **Storage Bucket:** `ripple-66854.firebasestorage.app`
+
+---
+
+## Android Configuration ✅
+
+### 1. Root-level `android/build.gradle.kts`
+
+```kotlin
+plugins {
+    id("com.google.gms.google-services") version "4.4.4" apply false
+}
+```
+
+### 2. App-level `android/app/build.gradle.kts`
+
+```kotlin
+plugins {
+    id("com.android.application")
+    id("kotlin-android")
+    id("com.google.gms.google-services")  // ← Added
+    id("dev.flutter.flutter-gradle-plugin")
+}
+```
+
+### 3. Android Permission (Android 13+)
+
+File: `android/app/src/main/AndroidManifest.xml`
+```xml
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+```
+
+---
+
+## Flutter Setup ✅
+
+### Dependencies (`pubspec.yaml`)
+
+```yaml
+dependencies:
+  firebase_core: ^3.13.0
+  firebase_messaging: ^15.2.5
+```
+
+### Firebase Initialization (`lib/main.dart`)
+
+```dart
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+// Handle background messages
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint('Handling background message: ${message.messageId}');
+}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  await dotenv.load(fileName: ".env");
+  
+  // Initialize Firebase
+  await Firebase.initializeApp();
+  
+  // Set up background message handler
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  
+  // ... rest of initialization
+}
+```
+
+---
+
+## NotificationService (`lib/core/services/notification_service.dart`)
+
+Service class yang sudah dibuat untuk mengelola FCM:
+
+### Available Methods
+
+| Method | Purpose |
+|--------|---------|
+| `requestPermission()` | Request notification permission dari user |
+| `registerFcmToken()` | Get FCM token & save ke Supabase |
+| `unregisterFcmToken()` | Remove token saat logout |
+| `setupForegroundHandler()` | Handle notifikasi saat app di foreground |
+| `setupNotificationTapHandler()` | Handle tap notification |
+| `initialize()` | One-call setup semua handlers |
+
+### Usage Example
+
+```dart
+// After user login
+class HomePage extends StatefulWidget {
+  @override
+  void initState() {
+    super.initState();
+    _setupNotifications();
+  }
+
+  Future<void> _setupNotifications() async {
+    // Request permission
+    final granted = await NotificationService.requestPermission();
+    
+    if (granted) {
+      // Initialize FCM
+      await NotificationService.initialize(
+        onForegroundMessage: (title, body, data) {
+          // Show in-app notification
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$title: $body')),
+          );
+        },
+        onNotificationTap: (data) {
+          // Navigate based on action
+          final todoId = data['todo_id'];
+          if (todoId != null) {
+            Navigator.pushNamed(context, '/focus-mode', arguments: todoId);
+          }
+        },
+      );
+    }
+  }
+}
+
+// On logout
+await NotificationService.unregisterFcmToken();
 ```
 
 ---
 
 ## User Flow
 
-### 1. Registration Flow
+### 1. Permission Request Flow
+
 ```
-User signs in with Google
+User logs in
     ↓
-App requests notification permission
+Show explanation dialog ("Get reminded before focus sessions!")
     ↓
-FirebaseMessaging.instance.getToken() → FCM Token
+User taps "Enable"
     ↓
-Send token to Supabase → stored in user_devices table
+NotificationService.requestPermission()
+    ↓
+OS shows permission dialog → User grants
+    ↓
+NotificationService.registerFcmToken()
+    ↓
+Token saved to Supabase user_devices table
 ```
 
-### 2. Notification Trigger Flow
-```
-Option A: Database Webhook (Real-time)
-─────────────────────────────────────
-Todo created with start_time
-    ↓
-pg_cron checks upcoming todos every minute
-    ↓
-Triggers Edge Function via pg_net
-    ↓
-Edge Function calls FCM API
-    ↓
-User receives push notification
+### 2. Notification Receive Flow
 
-Option B: Scheduled Check (Batch)
-─────────────────────────────────
-pg_cron runs every minute: "0/1 * * * *"
-    ↓
-Query: SELECT todos WHERE start_time BETWEEN NOW() AND NOW() + 5 minutes
-    ↓
-For each todo, send notification via Edge Function
 ```
-
-### 3. Notification Tap Flow
-```
-User receives notification
+Supabase cron job triggers Edge Function
+    ↓
+Edge Function calls FCM API with user's token
+    ↓
+FCM delivers to device
+    ↓
+If app foreground: setupForegroundHandler callback
+If app background: System notification shown
+If app terminated: System notification shown
     ↓
 User taps notification
     ↓
-App opens (foreground/background/terminated)
-    ↓
-Navigate to Focus Mode for that todo
+setupNotificationTapHandler callback → Navigate to Focus Mode
 ```
 
 ---
 
 ## Notification Types
 
-| Trigger | Title | Body | Action |
-|---------|-------|------|--------|
-| Todo Reminder | "⏰ {todo.title}" | "Starting in 5 minutes" | Open Focus Mode |
-| Todo Start | "🎯 Time to focus!" | "{todo.title}" | Open Focus Mode |
-| Milestone Due | "📅 Milestone due tomorrow" | "{milestone.title}" | Open Milestone |
-| Focus Complete | "🎉 Great job!" | "Session completed" | Mark todo done |
-
----
-
-## Technical Specs
-
-### FCM Token Management
-
-**Token Refresh:**
-- FCM tokens can expire/change
-- Listen to `FirebaseMessaging.instance.onTokenRefresh`
-- Update token in database when changed
-
-**Multi-Device Support:**
-- User dapat login di multiple devices
-- Store multiple tokens per user di `user_devices` table
-- Send notification ke semua devices user
-
-### Edge Function: send-notification
-
-```typescript
-// supabase/functions/send-notification/index.ts
-
-import { createClient } from 'npm:@supabase/supabase-js@2'
-import { JWT } from 'npm:google-auth-library@9'
-import serviceAccount from '../service-account.json' with { type: 'json' }
-
-interface NotificationPayload {
-  user_id: string
-  title: string
-  body: string
-  data?: Record<string, string>
-}
-
-const getAccessToken = async (): Promise<string> => {
-  const jwtClient = new JWT({
-    email: serviceAccount.client_email,
-    key: serviceAccount.private_key,
-    scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
-  })
-  const tokens = await jwtClient.authorize()
-  return tokens.access_token!
-}
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-)
-
-Deno.serve(async (req) => {
-  const payload: NotificationPayload = await req.json()
-  
-  // Get all FCM tokens for this user
-  const { data: devices } = await supabase
-    .from('user_devices')
-    .select('fcm_token')
-    .eq('user_id', payload.user_id)
-  
-  if (!devices || devices.length === 0) {
-    return new Response(JSON.stringify({ error: 'No devices found' }), { status: 404 })
-  }
-  
-  const accessToken = await getAccessToken()
-  
-  // Send to all user devices
-  const results = await Promise.all(
-    devices.map(device => 
-      fetch(
-        `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            message: {
-              token: device.fcm_token,
-              notification: {
-                title: payload.title,
-                body: payload.body,
-              },
-              data: payload.data || {},
-              android: {
-                priority: 'high',
-                notification: {
-                  sound: 'default',
-                  click_action: 'FLUTTER_NOTIFICATION_CLICK',
-                },
-              },
-              apns: {
-                payload: {
-                  aps: {
-                    sound: 'default',
-                    badge: 1,
-                  },
-                },
-              },
-            },
-          }),
-        }
-      ).then(res => res.json())
-    )
-  )
-  
-  return new Response(JSON.stringify({ results }))
-})
-```
-
-### Cron Job: Check Upcoming Todos
-
-```sql
--- Function to send reminder for upcoming todos
-CREATE OR REPLACE FUNCTION public.send_upcoming_reminders()
-RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE
-    todo_record RECORD;
-BEGIN
-    -- Find todos starting in 5 minutes that haven't been notified
-    FOR todo_record IN 
-        SELECT t.id, t.user_id, t.title, t.start_time
-        FROM public.todos t
-        WHERE t.is_scheduled = TRUE
-        AND t.is_completed = FALSE
-        AND t.notification_sent = FALSE
-        AND t.start_time BETWEEN NOW() AND NOW() + INTERVAL '5 minutes'
-    LOOP
-        -- Call Edge Function to send notification
-        PERFORM net.http_post(
-            url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url') 
-                   || '/functions/v1/send-notification',
-            headers := jsonb_build_object(
-                'Content-Type', 'application/json',
-                'Authorization', 'Bearer ' || 
-                    (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key')
-            ),
-            body := jsonb_build_object(
-                'user_id', todo_record.user_id,
-                'title', '⏰ ' || todo_record.title,
-                'body', 'Starting in 5 minutes',
-                'data', jsonb_build_object('todo_id', todo_record.id::TEXT, 'action', 'focus_mode')
-            )
-        );
-        
-        -- Mark as notified
-        UPDATE public.todos 
-        SET notification_sent = TRUE 
-        WHERE id = todo_record.id;
-    END LOOP;
-END;
-$$;
-
--- Schedule every minute
-SELECT cron.schedule(
-    'send-upcoming-reminders',
-    '* * * * *',  -- Every minute
-    'SELECT public.send_upcoming_reminders()'
-);
-```
-
----
-
-## Firebase Console Setup
-
-| Step | Action | Notes |
-|------|--------|-------|
-| 1 | Create Firebase Project | [console.firebase.google.com](https://console.firebase.google.com) |
-| 2 | Add Android App | Package: `com.ripple.app` |
-| 3 | Download `google-services.json` | Place in `android/app/` |
-| 4 | Add iOS App | Bundle ID: `com.ripple.app` |
-| 5 | Download `GoogleService-Info.plist` | Place in `ios/Runner/` |
-| 6 | Enable Cloud Messaging | Project Settings > Cloud Messaging |
-| 7 | Generate Service Account Key | For Edge Function (FCM v1 API) |
-
----
-
-## Flutter Packages
-
-```yaml
-dependencies:
-  firebase_core: ^2.27.0
-  firebase_messaging: ^14.7.0
-```
+| Trigger | Title | Body | Data |
+|---------|-------|------|------|
+| Todo Reminder | ⏰ {title} | Starting in 5 minutes! | `{todo_id, action: 'open_focus_mode'}` |
+| Todo Start | 🎯 Time to focus! | {title} | `{todo_id, action: 'open_focus_mode'}` |
+| Milestone Due | 📅 Milestone due tomorrow | {title} | `{milestone_id, action: 'open_milestone'}` |
 
 ---
 
 ## Confirmed Decisions
 
 - ✅ **FCM for MVP** - Not local notifications
-- ✅ **Multi-device support** - User can receive on all logged-in devices
+- ✅ **Android only for MVP** - iOS skipped
+- ✅ **Multi-device support** - Via `user_devices` table
 - ✅ **5-minute advance reminder** - Notify before todo starts
-- ✅ **Tap to open Focus Mode** - Direct navigation from notification
-- ✅ **pg_cron + Edge Function** - Server-side notification trigger
+- ✅ **Tap to open Focus Mode** - Direct navigation
+
+---
+
+## Related Docs
+
+- **Backend (Database, Cron, Edge Functions):** [06_database_schema.md](06_database_schema.md)
+- **Research:** [R_001 Push Notifications](../../Research/R_001_push_notifications.md)
+- **Flutter Service:** `lib/core/services/notification_service.dart`

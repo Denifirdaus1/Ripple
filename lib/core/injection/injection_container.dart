@@ -1,12 +1,31 @@
 import 'package:get_it/get_it.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../features/auth/data/datasources/auth_remote_datasource.dart';
+
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
-import '../../features/auth/domain/usecases/get_current_user.dart';
-import '../../features/auth/domain/usecases/sign_in_with_google.dart';
-import '../../features/auth/domain/usecases/sign_out.dart';
+import '../../features/auth/domain/usecases/auth_usecases.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/auth/presentation/bloc/login_cubit.dart';
+import '../../features/auth/data/datasources/auth_remote_datasource.dart';
+
+import '../../features/todo/data/repositories/todo_repository_impl.dart';
+import '../../features/todo/domain/repositories/todo_repository.dart';
+import '../../features/todo/domain/usecases/todo_usecases.dart';
+import '../../features/todo/presentation/bloc/todos_overview_bloc.dart';
+import '../../features/notes/data/repositories/note_repository_impl.dart';
+import '../../features/notes/domain/repositories/note_repository.dart';
+import '../../features/notes/domain/usecases/note_usecases.dart';
+import '../../features/notes/presentation/bloc/note_bloc.dart';
+import '../../features/notes/presentation/bloc/note_editor_cubit.dart';
+import '../../features/milestone/data/repositories/milestone_repository_impl.dart';
+import '../../features/milestone/domain/repositories/milestone_repository.dart';
+import '../../features/milestone/domain/usecases/milestone_usecases.dart';
+import '../../features/milestone/presentation/bloc/goal_list_bloc.dart';
+import '../../features/milestone/presentation/bloc/milestone_detail_bloc.dart';
+import '../../features/notification/data/repositories/notification_repository_impl.dart';
+import '../../features/notification/domain/repositories/notification_repository.dart';
+import '../../core/services/notification_service.dart';
 
 final sl = GetIt.instance;
 
@@ -15,30 +34,103 @@ Future<void> init() async {
   // Bloc
   sl.registerFactory(
     () => AuthBloc(
-      signInWithGoogle: sl(),
+      getAuthStream: sl(),
       signOut: sl(),
-      getCurrentUser: sl(),
+    ),
+  );
+  
+  sl.registerFactory(
+    () => LoginCubit(
+      signInWithGoogle: sl(),
+      signInWithEmail: sl(),
+      signUpWithEmail: sl(),
+      verifyEmailOtp: sl(),
+      resendConfirmationEmail: sl(),
     ),
   );
 
   // Use cases
+  sl.registerLazySingleton(() => GetAuthStream(sl()));
   sl.registerLazySingleton(() => SignInWithGoogle(sl()));
   sl.registerLazySingleton(() => SignOut(sl()));
-  sl.registerLazySingleton(() => GetCurrentUser(sl()));
+  sl.registerLazySingleton(() => SignInWithEmail(sl()));
+  sl.registerLazySingleton(() => SignUpWithEmail(sl()));
+  sl.registerLazySingleton(() => VerifyEmailOtp(sl()));
+  sl.registerLazySingleton(() => ResendConfirmationEmail(sl()));
+
+  // Data Sources
+  sl.registerLazySingleton<AuthRemoteDataSource>(
+    () => AuthRemoteDataSourceImpl(supabaseClient: sl()),
+  );
 
   // Repository
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(remoteDataSource: sl()),
   );
 
-  // Data sources
-  sl.registerLazySingleton<AuthRemoteDataSource>(
-    () => AuthRemoteDataSourceImpl(),
+  //! Features - Todo
+  // Bloc
+  sl.registerFactory(
+    () => TodosOverviewBloc(
+      getTodosStream: sl(),
+      saveTodo: sl(),
+      deleteTodo: sl(),
+    ),
+  );
+
+  // Use cases
+  sl.registerLazySingleton(() => GetTodosStream(sl()));
+  sl.registerLazySingleton(() => SaveTodo(sl()));
+  sl.registerLazySingleton(() => DeleteTodo(sl()));
+
+  // Repository
+  sl.registerLazySingleton<TodoRepository>(
+    () => TodoRepositoryImpl(),
   );
 
   //! Core
-  // Add core dependencies here (e.g., network client, local storage)
+  // Add core dependencies here
 
   //! External
-  // Add external dependencies here (e.g., SharedPreferences, http.Client)
+  // Add external dependencies here
+  sl.registerLazySingleton<SupabaseClient>(() => Supabase.instance.client);
+  // Notes
+  sl.registerFactory(() => NoteBloc(getNotesStream: sl(), deleteNote: sl()));
+  sl.registerFactory(() => NoteEditorCubit(saveNote: sl(), getNote: sl(), searchMentions: sl()));
+
+  // Use Cases
+  sl.registerLazySingleton(() => GetNotesStream(sl()));
+  sl.registerLazySingleton(() => SaveNote(sl()));
+  sl.registerLazySingleton(() => DeleteNote(sl()));
+  sl.registerLazySingleton(() => GetNote(sl()));
+  sl.registerLazySingleton(() => SearchMentions(sl()));
+
+  // Repository
+  sl.registerLazySingleton<NoteRepository>(
+    () => NoteRepositoryImpl(supabase: sl()),
+  );
+
+  // Milestones
+  sl.registerFactory(() => GoalListBloc(getGoalsStream: sl(), createGoal: sl(), repository: sl()));
+  sl.registerFactory(() => MilestoneDetailBloc(repository: sl()));
+
+  // Use Cases
+  sl.registerLazySingleton(() => GetGoalsStream(sl()));
+  sl.registerLazySingleton(() => GetGoal(sl()));
+  sl.registerLazySingleton(() => CreateGoal(sl()));
+  sl.registerLazySingleton(() => GetMilestonesStream(sl()));
+  sl.registerLazySingleton(() => CreateMilestone(sl()));
+  sl.registerLazySingleton(() => UpdateMilestone(sl()));
+  sl.registerLazySingleton(() => DeleteMilestone(sl()));
+
+  // Repository
+  sl.registerLazySingleton<MilestoneRepository>(
+    () => MilestoneRepositoryImpl(supabase: sl()),
+  );
+
+  // Notifications
+  sl.registerLazySingleton<NotificationRepository>(
+    () => NotificationRepositoryImpl(supabase: sl()),
+  );
+  sl.registerLazySingleton(() => NotificationService(sl()));
 }

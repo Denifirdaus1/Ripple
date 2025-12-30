@@ -6,6 +6,6 @@
 | Domain | Deskripsi | Jumlah Entry |
 | :--- | :--- | :--- |
 | [general](general/) | Knowledge umum | 0 |
-| [supabase](supabase/) | Supabase database & backend best practices | 1 |
+| [supabase](supabase/) | Supabase database & backend best practices | 2 |
 
-**Statistik:** 2 Domains | 1 Entry
+**Statistik:** 2 Domains | 2 Entries

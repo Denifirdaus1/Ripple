@@ -13,3 +13,33 @@
 | 21:17 | Fix Schema | TOPIC_001 | Switch from locale-dependent TO_CHAR to ISODOW for recurring todos |
 | 21:21 | Deep Research | R_001 | Push Notification System - FCM, Local Notifications, Architecture |
 | 21:34 | Update Schema | TOPIC_001 | Add FCM Push Notifications: user_devices table, notification_sent field, cron jobs |
+
+## 2025-12-29
+
+| Waktu | Aktivitas | ID | Keterangan |
+| :--- | :--- | :--- | :--- |
+| 14:45 | Firebase Setup | TOPIC_001 | Create Firebase project `ripple-66854`, register Android app |
+| 14:51 | Gradle Config | TOPIC_001 | Add Google Services plugin to `build.gradle.kts` (root & app level) |
+| 14:54 | Add File | TOPIC_001 | Add `google-services.json` to `android/app/` |
+| 14:55 | Add Packages | TOPIC_001 | Add `firebase_core`, `firebase_messaging` to pubspec.yaml |
+| 14:56 | Init Firebase | TOPIC_001 | Update `main.dart` with Firebase init & background handler |
+| 14:57 | Update Topic | TOPIC_001 | Update `07_push_notifications.md` with implementation progress |
+| 15:04 | Deep Research | TOPIC_001 | FCM Permission, Token Storage, Edge Functions, pg_cron via Exa MCP |
+| 15:10 | Update Topic | TOPIC_001 | Add comprehensive Step 1-5 guide for FCM implementation |
+| 15:12 | Create Service | TOPIC_001 | Create `notification_service.dart` with permission, token, handlers |
+
+## 2025-12-30
+
+| Waktu | Aktivitas | ID | Keterangan |
+| :--- | :--- | :--- | :--- |
+| 08:43 | Restructure Topics | TOPIC_001 | Reorganize: Backend → 06, Client → 07 (Option C) |
+| 08:45 | Update 06 | TOPIC_001 | Add Edge Functions section & update Vault with FCM secrets |
+| 08:46 | Rewrite 07 | TOPIC_001 | Focus on client-side only, reference 06 for backend |
+| 09:15 | Execute Plan | PLAN_001 | Implement Database Schema (8 Tables, Cron, Edge Fn) |
+| 09:25 | Fix Schema | PLAN_001 | Verify Unique Constraint & Fix Generated Column Logic |
+| 09:35 | Deep Research | PLAN_002 | RLS performance (auth.uid wrapper), search_path security |
+| 09:38 | Buat Plan | PLAN_002 | Schema Security & Performance Fixes (11 Warnings) |
+| 09:48 | Execute Plan | PLAN_002 | Fix 3 Functions, 8 RLS Policies, 2 FK Indexes |
+| 09:50 | Verify | PLAN_002 | 0 Security WARN, 0 Performance WARN (Linter Clean) |
+| 10:08 | Fix Vault | - | Corrected vault.create_secret argument order |
+| 10:10 | Create Knowledge | K_002 | Database Production Ready Status recorded |
