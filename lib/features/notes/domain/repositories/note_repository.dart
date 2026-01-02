@@ -4,7 +4,7 @@ import '../../../todo/domain/entities/todo.dart';
 abstract class NoteRepository {
   Stream<List<Note>> getNotesStream();
   Future<Note> getNote(String id);
-  Future<void> saveNote(Note note);
+  Future<Note> saveNote(Note note);
   Future<void> deleteNote(String id);
   
   // For mentions

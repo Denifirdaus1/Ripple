@@ -11,7 +11,7 @@ class GetNotesStream {
 class SaveNote {
   final NoteRepository repository;
   SaveNote(this.repository);
-  Future<void> call(Note note) => repository.saveNote(note);
+  Future<Note> call(Note note) => repository.saveNote(note);
 }
 
 class DeleteNote {

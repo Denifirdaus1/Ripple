@@ -9,12 +9,14 @@ class TodoItem extends StatelessWidget {
   final Todo todo;
   final ValueChanged<bool?>? onCheckboxChanged;
   final VoidCallback? onTap;
+  final VoidCallback? onStartFocus;
 
   const TodoItem({
     super.key,
     required this.todo,
     this.onCheckboxChanged,
     this.onTap,
+    this.onStartFocus,
   });
 
   @override
@@ -47,12 +49,50 @@ class TodoItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    todo.title,
-                    style: AppTypography.textTheme.bodyLarge?.copyWith(
-                      decoration: todo.isCompleted ? TextDecoration.lineThrough : null,
-                      color: todo.isCompleted ? AppColors.textSecondary : AppColors.textPrimary,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          todo.title,
+                          style: AppTypography.textTheme.bodyLarge?.copyWith(
+                            decoration: todo.isCompleted ? TextDecoration.lineThrough : null,
+                            color: todo.isCompleted ? AppColors.textSecondary : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      // Focus Mode indicator
+                      if (todo.focusEnabled && !todo.isCompleted)
+                        GestureDetector(
+                          onTap: onStartFocus,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            margin: const EdgeInsets.only(left: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.rippleBlue.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  PhosphorIcons.timer(PhosphorIconsStyle.fill),
+                                  size: 14,
+                                  color: AppColors.rippleBlue,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${todo.focusDurationMinutes ?? 25}m',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.rippleBlue,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   if (todo.description != null && todo.description!.isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -70,15 +110,13 @@ class TodoItem extends StatelessWidget {
               ),
             ),
 
-            // Priority Indicator
-            if (todo.priority != TodoPriority.none) ...[
-              const SizedBox(width: 8),
-              Icon(
-                PhosphorIcons.flag(PhosphorIconsStyle.fill),
-                size: 16,
-                color: _priorityColor(todo.priority),
-              ),
-            ],
+            // Priority Indicator (always shown)
+            const SizedBox(width: 8),
+            Icon(
+              PhosphorIcons.flag(PhosphorIconsStyle.fill),
+              size: 16,
+              color: _priorityColor(todo.priority),
+            ),
           ],
         ),
       ),
@@ -92,9 +130,7 @@ class TodoItem extends StatelessWidget {
       case TodoPriority.medium:
         return AppColors.warmTangerine;
       case TodoPriority.low:
-        return AppColors.rippleBlue; // Or Green?
-      case TodoPriority.none:
-        return Colors.transparent;
+        return AppColors.rippleBlue;
     }
   }
 }

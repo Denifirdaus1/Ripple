@@ -50,6 +50,7 @@ dependencies:
   # Firebase (FCM Push Notifications)
   firebase_core: ^3.13.0
   firebase_messaging: ^15.2.5
+  flutter_local_notifications: ^19.2.0
   google_fonts: ^6.3.3
   flutter_svg: ^2.2.3
   phosphor_flutter: ^2.1.0
@@ -60,6 +61,12 @@ dependencies:
   bloc: any
   intl: any
   logger: ^2.6.2
+  uuid: ^4.5.2
+  
+  # Calendar View (Syncfusion)
+  syncfusion_flutter_calendar: ^32.1.21
+  syncfusion_flutter_core: ^32.1.21
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

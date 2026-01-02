@@ -53,7 +53,7 @@ class MilestoneModel extends Milestone {
       'goal_id': goalId,
       'title': title,
       'notes': notes,
-      'target_date': targetDate?.toIso8601String(),
+      'target_date': targetDate?.toIso8601String().split('T').first,
       'is_completed': isCompleted,
       'completed_at': completedAt?.toIso8601String(),
       'order_index': orderIndex,

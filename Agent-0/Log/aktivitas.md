@@ -43,3 +43,34 @@
 | 09:50 | Verify | PLAN_002 | 0 Security WARN, 0 Performance WARN (Linter Clean) |
 | 10:08 | Fix Vault | - | Corrected vault.create_secret argument order |
 | 10:10 | Create Knowledge | K_002 | Database Production Ready Status recorded |
+
+## 2025-12-31
+
+| Waktu | Aktivitas | ID | Keterangan |
+| :--- | :--- | :--- | :--- |
+| 09:06 | Buat Finding | FIND_002 | Data Tidak Ter-load Setelah Re-login & Unexpected Signout |
+| 09:10 | Buat Plan | PLAN_011 | Fix Auth Session & Data Loading Issues |
+| 09:14 | Execute Plan | PLAN_011 | Phase 1: Auth-Aware Data Loading (BlocListener, ClearRequested events) |
+| 09:18 | Execute Plan | PLAN_011 | Phase 2: Session Management (SessionService, token refresh) |
+| 09:20 | Verify | PLAN_011 | ✅ flutter analyze clean, 10 tests passed |
+| 09:34 | Buat Finding | FIND_003 | Todo Priority Constraint Violation - Schema Mismatch |
+| 09:38 | Fix Direct | FIND_003 | Removed TodoPriority.none, aligned with DB schema (high/medium/low) |
+| 09:40 | Verify | FIND_003 | ✅ flutter analyze clean, all tests passed |
+| 10:45 | Audit | Lib/Features | Audited repositories against schema (FIND_004) |
+| 10:50 | Implement | PLAN_013 | Implemented comprehensive logging using `AppLogger` across Auth, Todo, Notes, Milestone, and Notification features. Added logging to BLoC events and Repository CRUD operations. |
+| 10:50 | Plan | PLAN_012 | Plan fixes for Notification platform & Milestone Date |
+| 10:55 | Execute | PLAN_012 | Fixed notification platform detection & milestone date format |
+| 10:58 | Verify | PLAN_012 | ✅ flutter analyze clean, tests passed |
+| 11:00 | Implement | PLAN_014 | Standardized Reactive UI Patterns (Optimistic-Wait) across Todo, Notes, and Milestone features. Updated `NoteBloc` to support event-driven saving. Verified with `flutter analyze`. |
+| 13:51 | Buat Plan | PLAN_014 | Enhance TodoList & Focus Mode - Gap Analysis vs TOPIC_001 |
+| 15:57 | Buat Topic | TOPIC_003 | Flutter Calendar Timeline Library Research - Deep research with MCP Exa & Context7 |
+| 16:58 | Buat Plan | PLAN_015 | Todo Calendar View (Syncfusion) - Implement Calendar Mode di TodosPage |
+| 17:10 | Execute | PLAN_015 | Implemented SfCalendar toggle in TodosPage with TodoCalendarDataSource |
+| 18:05 | Buat Plan | PLAN_016 | Implement Schedule Management - Add Date/Time Picker to TodoEditSheet |
+| 07:45 | Fix DB | - | Fix `user_devices` unique constraint for FCM token upsert (FAILURE_002) |
+| 08:10 | Buat Plan | PLAN_017 | FCM Notification System Optimization & Security Hardening |
+| 08:25 | Buat Plan | PLAN_018 | Todo Notification Integration |
+| 09:20 | Buat Finding | FIND_007 | Notification Timing & Delivery Failure |
+| 18:45 | Fix | FIND_007 | System notification check + settings redirect in TodoEditSheet |
+| 19:38 | Buat Plan | PLAN_019 | Notification Click Navigation & Custom Reminder |
+| 19:45 | Implement | PLAN_019 | Click navigation + reminder dropdown complete |

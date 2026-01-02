@@ -36,6 +36,9 @@ class _GoalListUpdated extends GoalListEvent {
   List<Object> get props => [goals];
 }
 
+/// Event to clear all goals data (triggered on logout)
+class GoalListClearRequested extends GoalListEvent {}
+
 // --- States ---
 enum GoalListStatus { initial, loading, success, failure }
 
@@ -82,12 +85,14 @@ class GoalListBloc extends Bloc<GoalListEvent, GoalListState> {
     on<_GoalListUpdated>(_onListUpdated);
     on<GoalListGoalCreated>(_onGoalCreated);
     on<GoalListGoalDeleted>(_onGoalDeleted);
+    on<GoalListClearRequested>(_onClearRequested);
   }
 
   Future<void> _onSubscriptionRequested(
     GoalListSubscriptionRequested event,
     Emitter<GoalListState> emit,
   ) async {
+    AppLogger.d('Goals subscription requested');
     emit(state.copyWith(status: GoalListStatus.loading));
     await _subscription?.cancel();
     _subscription = _getGoalsStream().listen(
@@ -103,6 +108,7 @@ class GoalListBloc extends Bloc<GoalListEvent, GoalListState> {
     _GoalListUpdated event,
     Emitter<GoalListState> emit,
   ) {
+    AppLogger.d('Goals updated: ${event.goals.length} items');
     emit(state.copyWith(
       status: GoalListStatus.success,
       goals: event.goals,
@@ -114,10 +120,13 @@ class GoalListBloc extends Bloc<GoalListEvent, GoalListState> {
     Emitter<GoalListState> emit,
   ) async {
     try {
+      AppLogger.d('Creating goal: ${event.goal.title}');
       final newGoal = await _createGoal(event.goal);
       final currentGoals = List<Goal>.from(state.goals)..add(newGoal);
+      AppLogger.i('Goal created successfully');
       emit(state.copyWith(status: GoalListStatus.success, goals: currentGoals));
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.e('Failed to create goal in Bloc', e, s);
       emit(state.copyWith(status: GoalListStatus.failure));
     }
   }
@@ -127,12 +136,26 @@ class GoalListBloc extends Bloc<GoalListEvent, GoalListState> {
     Emitter<GoalListState> emit,
   ) async {
     try {
+      AppLogger.d('Deleting goal: ${event.id}');
       await _repository.deleteGoal(event.id);
       final currentGoals = List<Goal>.from(state.goals)..removeWhere((g) => g.id == event.id);
+      AppLogger.i('Goal deleted successfully');
       emit(state.copyWith(status: GoalListStatus.success, goals: currentGoals));
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.e('Failed to delete goal in Bloc', e, s);
       emit(state.copyWith(status: GoalListStatus.failure));
     }
+  }
+
+  /// Clears all goals data and cancels subscription (triggered on logout)
+  void _onClearRequested(
+    GoalListClearRequested event,
+    Emitter<GoalListState> emit,
+  ) {
+    AppLogger.d('Clearing goals data');
+    _subscription?.cancel();
+    _subscription = null;
+    emit(const GoalListState());
   }
 
   @override

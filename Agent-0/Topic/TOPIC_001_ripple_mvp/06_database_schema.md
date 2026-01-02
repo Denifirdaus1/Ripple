@@ -250,8 +250,8 @@ CREATE TABLE public.user_devices (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
-    -- Prevent duplicate tokens per user
-    CONSTRAINT unique_user_device UNIQUE (user_id, fcm_token)
+    -- Prevent duplicate tokens globally
+    CONSTRAINT unique_fcm_token UNIQUE (fcm_token)
 );
 
 CREATE INDEX idx_user_devices_user_id ON public.user_devices (user_id);

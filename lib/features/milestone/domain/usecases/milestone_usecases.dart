@@ -29,13 +29,13 @@ class GetMilestonesStream {
 class CreateMilestone {
   final MilestoneRepository repository;
   CreateMilestone(this.repository);
-  Future<void> call(Milestone milestone) => repository.createMilestone(milestone);
+  Future<Milestone> call(Milestone milestone) => repository.createMilestone(milestone);
 }
 
 class UpdateMilestone {
   final MilestoneRepository repository;
   UpdateMilestone(this.repository);
-  Future<void> call(Milestone milestone) => repository.updateMilestone(milestone);
+  Future<Milestone> call(Milestone milestone) => repository.updateMilestone(milestone);
 }
 
 class DeleteMilestone {

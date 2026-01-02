@@ -35,6 +35,16 @@ class TodosOverviewFilterChanged extends TodosOverviewEvent {
   List<Object> get props => [filter];
 }
 
+class TodosOverviewViewModeChanged extends TodosOverviewEvent {
+  final TodosViewMode viewMode;
+  const TodosOverviewViewModeChanged(this.viewMode);
+  @override
+  List<Object> get props => [viewMode];
+}
+
+/// Event to clear all todos data (triggered on logout)
+class TodosOverviewClearRequested extends TodosOverviewEvent {}
+
 // Internal event for stream updates
 class _TodosOverviewTodosUpdated extends TodosOverviewEvent {
   final List<Todo> todos;
@@ -45,6 +55,7 @@ class _TodosOverviewTodosUpdated extends TodosOverviewEvent {
 
 // --- States ---
 enum TodosViewFilter { all, active, completed }
+enum TodosViewMode { list, schedule }
 
 enum TodosOverviewStatus { initial, loading, success, failure }
 
@@ -52,11 +63,13 @@ class TodosOverviewState extends Equatable {
   final TodosOverviewStatus status;
   final List<Todo> todos;
   final TodosViewFilter filter;
+  final TodosViewMode viewMode;
 
   const TodosOverviewState({
     this.status = TodosOverviewStatus.initial,
     this.todos = const [],
     this.filter = TodosViewFilter.all,
+    this.viewMode = TodosViewMode.list,
   });
 
   Iterable<Todo> get filteredTodos {
@@ -75,16 +88,18 @@ class TodosOverviewState extends Equatable {
     TodosOverviewStatus? status,
     List<Todo>? todos,
     TodosViewFilter? filter,
+    TodosViewMode? viewMode,
   }) {
     return TodosOverviewState(
       status: status ?? this.status,
       todos: todos ?? this.todos,
       filter: filter ?? this.filter,
+      viewMode: viewMode ?? this.viewMode,
     );
   }
 
   @override
-  List<Object> get props => [status, todos, filter];
+  List<Object> get props => [status, todos, filter, viewMode];
 }
 
 // --- BLoC ---
@@ -107,12 +122,15 @@ class TodosOverviewBloc extends Bloc<TodosOverviewEvent, TodosOverviewState> {
     on<TodosOverviewTodoSaved>(_onTodoSaved);
     on<TodosOverviewTodoDeleted>(_onTodoDeleted);
     on<TodosOverviewFilterChanged>(_onFilterChanged);
+    on<TodosOverviewViewModeChanged>(_onViewModeChanged);
+    on<TodosOverviewClearRequested>(_onClearRequested);
   }
 
   Future<void> _onSubscriptionRequested(
     TodosOverviewSubscriptionRequested event,
     Emitter<TodosOverviewState> emit,
   ) async {
+    AppLogger.d('Todos subscription requested');
     emit(state.copyWith(status: TodosOverviewStatus.loading));
     
     await _todosSubscription?.cancel();
@@ -131,6 +149,7 @@ class TodosOverviewBloc extends Bloc<TodosOverviewEvent, TodosOverviewState> {
     _TodosOverviewTodosUpdated event,
     Emitter<TodosOverviewState> emit,
   ) {
+    AppLogger.d('Todos updated: ${event.todos.length} items');
     emit(state.copyWith(
       status: TodosOverviewStatus.success,
       todos: event.todos,
@@ -142,18 +161,38 @@ class TodosOverviewBloc extends Bloc<TodosOverviewEvent, TodosOverviewState> {
     Emitter<TodosOverviewState> emit,
   ) async {
     try {
+      AppLogger.d('Saving todo: ${event.todo.title}');
+      
+      // OPTIMISTIC UPDATE (Optional but risky if DB fails, sticking to Wait-Then-Update as per plan)
+      // Implementation: Wait for DB response, then update local list.
+      
       final savedTodo = await _saveTodo(event.todo);
+      
+      // Create a new list from the current state to ensure immutability
       final currentTodos = List<Todo>.from(state.todos);
       final index = currentTodos.indexWhere((t) => t.id == savedTodo.id);
       
       if (index >= 0) {
         currentTodos[index] = savedTodo;
       } else {
+        // If it's a new item, add it to the top or bottom? 
+        // Stream usually orders by created_at. Let's add to end for now, or match Repo order.
+        // Repo implementation orders by created_at (ascending).
+        // Since we don't know the exact position without resort, adding to end is safe, 
+        // or we could sort.
         currentTodos.add(savedTodo);
-        // Optional: Sort if needed, but Stream usually handles order
       }
-      emit(state.copyWith(status: TodosOverviewStatus.success, todos: currentTodos));
-    } catch (_) {
+      
+      AppLogger.i('Todo saved successfully, updating UI manually');
+      
+      // Emit success state with the updated list
+      emit(state.copyWith(
+        status: TodosOverviewStatus.success,
+        todos: currentTodos,
+      ));
+    } catch (e, s) {
+      AppLogger.e('Failed to save todo in Bloc', e, s);
+      // Emit failure but keep the old todos
       emit(state.copyWith(status: TodosOverviewStatus.failure));
     }
   }
@@ -163,11 +202,14 @@ class TodosOverviewBloc extends Bloc<TodosOverviewEvent, TodosOverviewState> {
     Emitter<TodosOverviewState> emit,
   ) async {
     try {
+      AppLogger.d('Deleting todo: ${event.todo.id}');
       await _deleteTodo(event.todo.id);
       final currentTodos = List<Todo>.from(state.todos)
         ..removeWhere((t) => t.id == event.todo.id);
+      AppLogger.i('Todo deleted successfully');
       emit(state.copyWith(status: TodosOverviewStatus.success, todos: currentTodos));
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.e('Failed to delete todo in Bloc', e, s);
       emit(state.copyWith(status: TodosOverviewStatus.failure));
     }
   }
@@ -176,7 +218,27 @@ class TodosOverviewBloc extends Bloc<TodosOverviewEvent, TodosOverviewState> {
     TodosOverviewFilterChanged event,
     Emitter<TodosOverviewState> emit,
   ) {
+    AppLogger.d('Filter changed: ${event.filter}');
     emit(state.copyWith(filter: event.filter));
+  }
+
+  void _onViewModeChanged(
+    TodosOverviewViewModeChanged event,
+    Emitter<TodosOverviewState> emit,
+  ) {
+    AppLogger.d('View mode changed: ${event.viewMode}');
+    emit(state.copyWith(viewMode: event.viewMode));
+  }
+
+  /// Clears all todos data and cancels subscription (triggered on logout)
+  void _onClearRequested(
+    TodosOverviewClearRequested event,
+    Emitter<TodosOverviewState> emit,
+  ) {
+    AppLogger.d('Clearing todos data');
+    _todosSubscription?.cancel();
+    _todosSubscription = null;
+    emit(const TodosOverviewState());
   }
 
   @override

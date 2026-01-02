@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/usecases/auth_usecases.dart';
+import '../../../../core/utils/logger.dart';
+import '../../../../core/services/notification_service.dart';
 
 // --- Events ---
 abstract class AuthEvent extends Equatable {
@@ -71,17 +74,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthSubscriptionRequested event,
     Emitter<AuthState> emit,
   ) async {
+    AppLogger.d('Auth subscription requested');
     await _authSubscription?.cancel();
     _authSubscription = _getAuthStream().listen(
       (user) => add(AuthUserChanged(user)),
-      onError: (error) => add(AuthLogoutRequested()), // Simplistic error handling
+      onError: (error, stackTrace) {
+        AppLogger.e('Auth stream error', error, stackTrace);
+        add(AuthLogoutRequested());
+      },
     );
   }
 
   void _onUserChanged(AuthUserChanged event, Emitter<AuthState> emit) {
     if (event.user.isEmpty) {
+      AppLogger.d('Auth state: Unauthenticated');
       emit(const Unauthenticated());
     } else {
+      AppLogger.i('Auth state: Authenticated (User: ${event.user.id})');
       emit(Authenticated(event.user));
     }
   }
@@ -90,6 +99,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthLogoutRequested event,
     Emitter<AuthState> emit,
   ) {
+    AppLogger.d('Logout requested');
+    
+    // Reset notification service for next user
+    GetIt.I<NotificationService>().reset();
+    
     unawaited(_signOut());
   }
 

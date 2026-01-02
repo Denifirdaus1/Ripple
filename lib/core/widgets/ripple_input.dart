@@ -13,6 +13,7 @@ class RippleInput extends StatelessWidget {
   final Widget? suffixIcon;
   final String? Function(String?)? validator;
   final int maxLines;
+  final bool autofocus;
 
   const RippleInput({
     super.key,
@@ -26,6 +27,7 @@ class RippleInput extends StatelessWidget {
     this.suffixIcon,
     this.validator,
     this.maxLines = 1,
+    this.autofocus = false,
   });
 
   @override
@@ -49,6 +51,7 @@ class RippleInput extends StatelessWidget {
           obscureText: obscureText,
           validator: validator,
           maxLines: maxLines,
+          autofocus: autofocus,
           style: AppTypography.textTheme.bodyLarge,
           decoration: InputDecoration(
             hintText: hint ?? hintText,

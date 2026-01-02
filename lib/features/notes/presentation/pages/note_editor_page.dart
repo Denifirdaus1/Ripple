@@ -2,10 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../features/todo/domain/entities/todo.dart';
 import '../../../../core/injection/injection_container.dart'; // Correct path
 import '../bloc/note_editor_cubit.dart';
+import '../bloc/note_bloc.dart';
 
 class NoteEditorPage extends StatelessWidget {
   final String noteId;
@@ -32,22 +34,27 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
   final QuillController _controller = QuillController.basic();
   final TextEditingController _titleController = TextEditingController();
   final FocusNode _editorFocusNode = FocusNode();
-  // Timer? _autoSaveTimer;
+  StreamSubscription<DocChange>? _editorChangeSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    final cubit = context.read<NoteEditorCubit>();
+    _editorChangeSubscription = _controller.document.changes.listen((event) {
+      if (!mounted) return;
+      final content = _controller.document.toDelta().toJson();
+      final title = _titleController.text.trim();
+      cubit.onTextChanged({'ops': content}, title);
+    });
+  }
 
   @override
   void dispose() {
+    _editorChangeSubscription?.cancel();
     _controller.dispose();
     _titleController.dispose();
     _editorFocusNode.dispose();
-    // _autoSaveTimer?.cancel();
     super.dispose();
-  }
-
-  void _save(BuildContext context) {
-    final cubit = context.read<NoteEditorCubit>();
-    final content = _controller.document.toDelta().toJson();
-    final title = _titleController.text.trim();
-    cubit.save({'ops': content}, title.isEmpty ? 'Untitled' : title);
   }
 
   void _onNoteLoaded(NoteEditorState state) {
@@ -103,8 +110,16 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
     return BlocListener<NoteEditorCubit, NoteEditorState>(
       listenWhen: (previous, current) =>
           previous.status == NoteEditorStatus.loading &&
-          current.status == NoteEditorStatus.success,
+          current.status == NoteEditorStatus.success, // Or any success update
       listener: (context, state) {
+        if (state.status == NoteEditorStatus.success) {
+           // Notify NoteBloc to update the list manually
+           try {
+             context.read<NoteBloc>().add(NoteSaved(state.note));
+           } catch (e) {
+             // Bloc might not be in context if opened directly or structure differs.
+           }
+        }
         _onNoteLoaded(state);
       },
       child: BlocBuilder<NoteEditorCubit, NoteEditorState>(
@@ -113,75 +128,104 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
             return const Scaffold(body: Center(child: CircularProgressIndicator()));
           }
 
-          return Scaffold(
-            backgroundColor: AppColors.background,
-            appBar: AppBar(
+          return PopScope(
+            canPop: true,
+            onPopInvokedWithResult: (didPop, result) async {
+              // Auto-save on exit
+              if (didPop) return;
+              // If we wanted to block pop, we'd do logic here.
+              // But for simple auto-save, we can just trigger it.
+              // Ideally, we trigger save and let it happen in background? 
+              // Or wait? Waiting on pop is tricky without async gaps.
+              // Since we return true, the pop happens immediately.
+              // We should trigger the save call before popping or fire-and-forget.
+              final cubit = context.read<NoteEditorCubit>();
+              final content = _controller.document.toDelta().toJson();
+              final title = _titleController.text.trim();
+              cubit.save({'ops': content}, title, isAutoSave: true);
+            },
+            child: Scaffold(
               backgroundColor: AppColors.background,
-              elevation: 0,
-              iconTheme: const IconThemeData(color: AppColors.textPrimary),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.alternate_email),
-                  onPressed: () => _insertMention(context),
-                  tooltip: 'Mention Todo',
+              appBar: AppBar(
+                backgroundColor: AppColors.background,
+                elevation: 0,
+                iconTheme: const IconThemeData(color: AppColors.textPrimary),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () {
+                    // Manual back button handling to ensure save
+                    final cubit = context.read<NoteEditorCubit>();
+                    final content = _controller.document.toDelta().toJson();
+                    final title = _titleController.text.trim();
+                    cubit.save({'ops': content}, title, isAutoSave: true);
+                    context.pop();
+                  },
                 ),
-                IconButton(
-                  icon: const Icon(Icons.save),
-                  onPressed: () => _save(context),
-                ),
-              ],
-            ),
-            body: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TextField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
-                      hintText: 'Title',
-                      border: InputBorder.none,
-                      hintStyle: TextStyle(
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.alternate_email),
+                    onPressed: () => _insertMention(context),
+                    tooltip: 'Mention Todo',
+                  ),
+                ],
+              ),
+              body: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: _titleController,
+                      onChanged: (val) {
+                         final cubit = context.read<NoteEditorCubit>();
+                         final content = _controller.document.toDelta().toJson();
+                         cubit.onTextChanged({'ops': content}, val);
+                      },
+                      decoration: const InputDecoration(
+                        hintText: 'Title',
+                        border: InputBorder.none,
+                        hintStyle: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-                QuillSimpleToolbar(
-                  controller: _controller,
-                  config: const QuillSimpleToolbarConfig(
-                    showSearchButton: false, 
-                    showInlineCode: false,
-                    showSubscript: false,
-                    showSuperscript: false,
-                    showFontFamily: false,
-                    showFontSize: false,
-                    toolbarSectionSpacing: 0,
-                  ),
-                ),
-                const Divider(),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: QuillEditor.basic(
-                      controller: _controller,
-                      focusNode: _editorFocusNode,
-                      config: QuillEditorConfig(
-                        placeholder: 'Start typing...',
-                        onLaunchUrl: (url) {
-                          _handleLinkTap(url);
-                        },
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ),
-                ),
-              ],
+                  QuillSimpleToolbar(
+                    controller: _controller,
+                    config: const QuillSimpleToolbarConfig(
+                      showSearchButton: false, 
+                      showInlineCode: false,
+                      showSubscript: false,
+                      showSuperscript: false,
+                      showFontFamily: false,
+                      showFontSize: false,
+                      toolbarSectionSpacing: 0,
+                    ),
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: QuillEditor.basic(
+                        controller: _controller,
+                        focusNode: _editorFocusNode,
+                        config: QuillEditorConfig(
+                          placeholder: 'Start typing...',
+                          onLaunchUrl: (url) {
+                            _handleLinkTap(url);
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },

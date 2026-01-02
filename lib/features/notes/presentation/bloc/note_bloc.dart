@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/utils/logger.dart';
 import '../../domain/entities/note.dart';
 import '../../domain/usecases/note_usecases.dart';
 
@@ -13,11 +14,18 @@ abstract class NoteEvent extends Equatable {
 
 class NoteSubscriptionRequested extends NoteEvent {}
 
-class NoteDeleted extends NoteEvent {
-  final String id;
-  const NoteDeleted(this.id);
+class NoteSaved extends NoteEvent {
+  final Note note;
+  const NoteSaved(this.note);
   @override
-  List<Object> get props => [id];
+  List<Object> get props => [note];
+}
+
+class NoteDeleted extends NoteEvent {
+  final String noteId;
+  const NoteDeleted(this.noteId);
+  @override
+  List<Object> get props => [noteId];
 }
 
 class _NoteListUpdated extends NoteEvent {
@@ -26,6 +34,9 @@ class _NoteListUpdated extends NoteEvent {
   @override
   List<Object> get props => [notes];
 }
+
+/// Event to clear all notes data (triggered on logout)
+class NoteClearRequested extends NoteEvent {}
 
 // --- States ---
 enum NoteStatus { initial, loading, success, failure }
@@ -66,39 +77,84 @@ class NoteBloc extends Bloc<NoteEvent, NoteState> {
         _deleteNote = deleteNote,
         super(const NoteState()) {
     on<NoteSubscriptionRequested>(_onSubscriptionRequested);
-    on<_NoteListUpdated>(_onListUpdated);
+    on<_NoteListUpdated>(_onNoteListUpdated);
+    on<NoteSaved>(_onNoteSaved); 
     on<NoteDeleted>(_onDeleted);
+    on<NoteClearRequested>(_onClearRequested);
   }
 
   Future<void> _onSubscriptionRequested(
     NoteSubscriptionRequested event,
     Emitter<NoteState> emit,
   ) async {
+    AppLogger.d('Note Subscription Requested');
     emit(state.copyWith(status: NoteStatus.loading));
     await _notesSubscription?.cancel();
     _notesSubscription = _getNotesStream().listen(
       (notes) => add(_NoteListUpdated(notes)),
-      onError: (_) {
-        // Handle error
+      onError: (e, s) {
+        AppLogger.e('Note Stream Error', e, s);
+        emit(state.copyWith(status: NoteStatus.failure));
       }
     );
   }
 
-  void _onListUpdated(
+  void _onNoteListUpdated(
     _NoteListUpdated event,
     Emitter<NoteState> emit,
   ) {
-    emit(state.copyWith(
-      status: NoteStatus.success,
-      notes: event.notes,
-    ));
+    AppLogger.d('Note list updated from stream: ${event.notes.length}');
+    emit(state.copyWith(status: NoteStatus.success, notes: event.notes));
+  }
+
+  Future<void> _onNoteSaved(
+    NoteSaved event,
+    Emitter<NoteState> emit,
+  ) async {
+      // Manual optimistic/wait update
+      // We assume the note passed here is ALREADY saved by the editor
+      AppLogger.d('NoteSaved event received: ${event.note.title}');
+      
+      final currentNotes = List<Note>.from(state.notes);
+      final index = currentNotes.indexWhere((n) => n.id == event.note.id);
+      
+      if (index >= 0) {
+        currentNotes[index] = event.note;
+      } else {
+        currentNotes.add(event.note);
+      }
+      
+      emit(state.copyWith(status: NoteStatus.success, notes: currentNotes));
   }
 
   Future<void> _onDeleted(
     NoteDeleted event,
     Emitter<NoteState> emit,
   ) async {
-    await _deleteNote(event.id);
+    try {
+      AppLogger.d('Deleting note: ${event.noteId}');
+      await _deleteNote(event.noteId);
+      
+      final currentNotes = List<Note>.from(state.notes)
+        ..removeWhere((n) => n.id == event.noteId);
+        
+      AppLogger.i('Note deleted successfully');
+      emit(state.copyWith(status: NoteStatus.success, notes: currentNotes));
+    } catch (e, s) {
+      AppLogger.e('Failed to delete note in Bloc', e, s);
+      // Optional: Emit failure state or show snackbar via listener
+    }
+  }
+
+  /// Clears all notes data and cancels subscription (triggered on logout)
+  void _onClearRequested(
+    NoteClearRequested event,
+    Emitter<NoteState> emit,
+  ) {
+    AppLogger.d('Clearing notes data');
+    _notesSubscription?.cancel();
+    _notesSubscription = null;
+    emit(const NoteState());
   }
 
   @override

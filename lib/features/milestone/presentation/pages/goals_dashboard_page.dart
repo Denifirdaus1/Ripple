@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/ripple_page_header.dart';
@@ -29,18 +28,6 @@ class _GoalsDashboardView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (_) => BlocProvider.value(
-              value: context.read<GoalListBloc>(),
-              child: const _AddGoalDialog(),
-            ),
-          );
-        },
-        child: const Icon(PhosphorIconsFill.plus),
-      ),
       body: SafeArea(
         child: Column(
           children: [

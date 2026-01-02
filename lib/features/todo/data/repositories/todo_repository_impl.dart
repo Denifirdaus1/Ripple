@@ -12,6 +12,7 @@ class TodoRepositoryImpl implements TodoRepository {
 
   @override
   Stream<List<Todo>> getTodosStream() {
+    AppLogger.d('Subscribing to todos stream');
     return _supabase
         .from('todos')
         .stream(primaryKey: ['id'])
@@ -22,6 +23,7 @@ class TodoRepositoryImpl implements TodoRepository {
   @override
   Future<Todo> saveTodo(Todo todo) async {
     try {
+      AppLogger.d('Saving todo to DB: ${todo.title} (ID: ${todo.id})');
       final model = TodoModel.fromEntity(todo);
       final json = model.toJson();
       Map<String, dynamic> data;
@@ -30,6 +32,7 @@ class TodoRepositoryImpl implements TodoRepository {
       } else {
         data = await _supabase.from('todos').upsert(json).select().single();
       }
+      AppLogger.i('Todo saved to DB successfully');
       return TodoModel.fromJson(data);
     } catch (e, s) {
       AppLogger.e('Failed to save todo', e, s);
@@ -40,7 +43,9 @@ class TodoRepositoryImpl implements TodoRepository {
   @override
   Future<void> deleteTodo(String id) async {
     try {
+      AppLogger.d('Deleting todo from DB: $id');
       await _supabase.from('todos').delete().eq('id', id);
+      AppLogger.i('Todo deleted from DB successfully');
     } catch (e, s) {
       AppLogger.e('Failed to delete todo', e, s);
       rethrow;

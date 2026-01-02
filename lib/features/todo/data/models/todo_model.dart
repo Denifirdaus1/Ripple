@@ -19,6 +19,7 @@ class TodoModel extends Todo {
     super.recurrenceRule,
     super.parentTodoId,
     super.notificationSent,
+    super.reminderMinutes,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -42,6 +43,7 @@ class TodoModel extends Todo {
       recurrenceRule: todo.recurrenceRule,
       parentTodoId: todo.parentTodoId,
       notificationSent: todo.notificationSent,
+      reminderMinutes: todo.reminderMinutes,
       createdAt: todo.createdAt,
       updatedAt: todo.updatedAt,
     );
@@ -66,6 +68,7 @@ class TodoModel extends Todo {
       recurrenceRule: json['recurrence_rule'] as Map<String, dynamic>?,
       parentTodoId: json['parent_todo_id'] as String?,
       notificationSent: json['notification_sent'] as bool? ?? false,
+      reminderMinutes: json['reminder_minutes'] as int? ?? 5,
       createdAt: DateTime.parse(json['created_at']).toLocal(),
       updatedAt: DateTime.parse(json['updated_at']).toLocal(),
     );
@@ -90,6 +93,7 @@ class TodoModel extends Todo {
       'recurrence_rule': recurrenceRule,
       'parent_todo_id': (parentTodoId?.isEmpty ?? true) ? null : parentTodoId,
       'notification_sent': notificationSent,
+      'reminder_minutes': reminderMinutes,
       // created_at / updated_at handled by DB defaults and triggers
     };
   }
@@ -99,7 +103,7 @@ class TodoModel extends Todo {
       case 'high': return TodoPriority.high;
       case 'medium': return TodoPriority.medium;
       case 'low': return TodoPriority.low;
-      default: return TodoPriority.none;
+      default: return TodoPriority.medium;  // Match DB default
     }
   }
 
@@ -108,7 +112,6 @@ class TodoModel extends Todo {
       case TodoPriority.high: return 'high';
       case TodoPriority.medium: return 'medium';
       case TodoPriority.low: return 'low';
-      case TodoPriority.none: return 'none';
     }
   }
 }

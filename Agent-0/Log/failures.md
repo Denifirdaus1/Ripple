@@ -9,6 +9,7 @@ Log kegagalan tool/command untuk pembelajaran Agent.
 |------|----------------|--------------| 
 | run_command | 0 | - |
 | write_to_file | 0 | - |
+| flutter (postgrest) | 1 | 2026-01-01 |
 
 ---
 
@@ -30,6 +31,15 @@ Log kegagalan tool/command untuk pembelajaran Agent.
 3.  Refactored `AuthRepositoryImpl` to strictly delegate to `AuthRemoteDataSource`.
 4.  Refactored `AuthBloc` to use Sealed Class states.
 **Lesson**: Always verify package changelogs before major upgrades. Maintain strict separation of concerns.
+
+### [FAILURE_002] PostgrestException: No unique constraint for ON CONFLICT
+**Date**: 2026-01-01
+**Severity**: Medium
+**Context**: "Failed to save device token" during push notification implementation.
+**Error**: `there is no unique or exclusion constraint matching the ON CONFLICT specification` (Code: 42P10)
+**Root Cause**: Attempting an `upsert` in Supabase without a corresponding unique constraint on the columns used in the conflict clause.
+**Workaround**: Ensure the table has a unique key on the combination of columns being used for the upsert (e.g., `user_id` and `token`).
+**Resolution**: Removed composite constraint `unique_user_device` and added `unique_fcm_token` strictly on the `fcm_token` column to support `upsert` and prevent cross-user token reuse. Applied via SQL migration on 2026-01-01.
 
 ---
 

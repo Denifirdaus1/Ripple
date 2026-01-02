@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/goal.dart';
 import '../../domain/entities/milestone.dart';
 import '../../domain/repositories/milestone_repository.dart';
+import '../../../../core/utils/logger.dart';
 
 // --- Events ---
 sealed class MilestoneDetailEvent extends Equatable {
@@ -106,11 +107,13 @@ class MilestoneDetailBloc extends Bloc<MilestoneDetailEvent, MilestoneDetailStat
     MilestoneDetailSubscriptionRequested event,
     Emitter<MilestoneDetailState> emit,
   ) async {
+    AppLogger.d('Milestone detail subscription requested for goal: ${event.goalId}');
     emit(state.copyWith(status: MilestoneDetailStatus.loading));
 
     // Fetch goal once
     final goal = await _repository.getGoal(event.goalId);
     if (goal == null) {
+      AppLogger.w('Goal not found for detail view: ${event.goalId}');
       emit(state.copyWith(status: MilestoneDetailStatus.failure, errorMessage: 'Goal not found'));
       return;
     }
@@ -119,14 +122,20 @@ class MilestoneDetailBloc extends Bloc<MilestoneDetailEvent, MilestoneDetailStat
     // Subscribe to milestones stream
     await emit.forEach<List<Milestone>>(
       _repository.getMilestonesStream(event.goalId),
-      onData: (milestones) => state.copyWith(
-        status: MilestoneDetailStatus.success,
-        milestones: milestones,
-      ),
-      onError: (e, s) => state.copyWith(
-        status: MilestoneDetailStatus.failure,
-        errorMessage: 'Failed to load milestones',
-      ),
+      onData: (milestones) {
+        AppLogger.d('Milestones updated for goal ${event.goalId}: ${milestones.length} items');
+        return state.copyWith(
+          status: MilestoneDetailStatus.success,
+          milestones: milestones,
+        );
+      },
+      onError: (e, s) {
+        AppLogger.e('Milestones Stream Error', e, s);
+        return state.copyWith(
+          status: MilestoneDetailStatus.failure,
+          errorMessage: 'Failed to load milestones',
+        );
+      },
     );
   }
 
@@ -134,40 +143,98 @@ class MilestoneDetailBloc extends Bloc<MilestoneDetailEvent, MilestoneDetailStat
     MilestoneDetailMilestoneCreated event,
     Emitter<MilestoneDetailState> emit,
   ) async {
-    await _repository.createMilestone(event.milestone);
+    try {
+      AppLogger.d('Creating milestone in detail view: ${event.milestone.title}');
+      final createdMilestone = await _repository.createMilestone(event.milestone);
+      
+      final currentMilestones = List<Milestone>.from(state.milestones)..add(createdMilestone);
+      // Sort if necessary, traditionally by index or date?
+      
+      emit(state.copyWith(
+        status: MilestoneDetailStatus.success,
+        milestones: currentMilestones,
+      ));
+    } catch (e, s) {
+      AppLogger.e('Failed to create milestone in Bloc', e, s);
+    }
   }
 
   Future<void> _onMilestoneUpdated(
     MilestoneDetailMilestoneUpdated event,
     Emitter<MilestoneDetailState> emit,
   ) async {
-    await _repository.updateMilestone(event.milestone);
+    try {
+      AppLogger.d('Updating milestone in detail view: ${event.milestone.id}');
+      final updatedMilestone = await _repository.updateMilestone(event.milestone);
+      
+      final currentMilestones = List<Milestone>.from(state.milestones);
+      final index = currentMilestones.indexWhere((m) => m.id == updatedMilestone.id);
+      if (index >= 0) {
+        currentMilestones[index] = updatedMilestone;
+      }
+      
+      emit(state.copyWith(
+        status: MilestoneDetailStatus.success,
+        milestones: currentMilestones,
+      ));
+    } catch (e, s) {
+      AppLogger.e('Failed to update milestone in Bloc', e, s);
+    }
   }
 
   Future<void> _onMilestoneDeleted(
     MilestoneDetailMilestoneDeleted event,
     Emitter<MilestoneDetailState> emit,
   ) async {
-    await _repository.deleteMilestone(event.milestoneId);
+    try {
+      AppLogger.d('Deleting milestone in detail view: ${event.milestoneId}');
+      await _repository.deleteMilestone(event.milestoneId);
+      
+      final currentMilestones = List<Milestone>.from(state.milestones)
+        ..removeWhere((m) => m.id == event.milestoneId);
+        
+      emit(state.copyWith(
+        status: MilestoneDetailStatus.success,
+        milestones: currentMilestones,
+      ));
+    } catch (e, s) {
+      AppLogger.e('Failed to delete milestone in Bloc', e, s);
+    }
   }
 
   Future<void> _onCompletionToggled(
     MilestoneDetailMilestoneCompletionToggled event,
     Emitter<MilestoneDetailState> emit,
   ) async {
-    final updated = Milestone(
-      id: event.milestone.id,
-      goalId: event.milestone.goalId,
-      title: event.milestone.title,
-      targetDate: event.milestone.targetDate,
-      notes: event.milestone.notes,
-      bannerUrl: event.milestone.bannerUrl,
-      isCompleted: event.isCompleted,
-      completedAt: event.isCompleted ? DateTime.now() : null,
-      orderIndex: event.milestone.orderIndex,
-      createdAt: event.milestone.createdAt,
-      updatedAt: DateTime.now(),
-    );
-    await _repository.updateMilestone(updated);
+    try {
+      AppLogger.d('Toggling completion for milestone: ${event.milestone.id} to ${event.isCompleted}');
+      final updated = Milestone(
+        id: event.milestone.id,
+        goalId: event.milestone.goalId,
+        title: event.milestone.title,
+        targetDate: event.milestone.targetDate,
+        notes: event.milestone.notes,
+        bannerUrl: event.milestone.bannerUrl,
+        isCompleted: event.isCompleted,
+        completedAt: event.isCompleted ? DateTime.now() : null,
+        orderIndex: event.milestone.orderIndex,
+        createdAt: event.milestone.createdAt,
+        updatedAt: DateTime.now(),
+      );
+      final resultMilestone = await _repository.updateMilestone(updated);
+      
+      final currentMilestones = List<Milestone>.from(state.milestones);
+      final index = currentMilestones.indexWhere((m) => m.id == resultMilestone.id);
+      if (index >= 0) {
+        currentMilestones[index] = resultMilestone;
+      }
+      
+      emit(state.copyWith(
+        status: MilestoneDetailStatus.success,
+        milestones: currentMilestones,
+      ));
+    } catch (e, s) {
+      AppLogger.e('Failed to toggle completion in Bloc', e, s);
+    }
   }
 }

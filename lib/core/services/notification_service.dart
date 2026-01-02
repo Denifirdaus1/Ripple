@@ -5,53 +5,117 @@ import '../../features/notification/domain/repositories/notification_repository.
 class NotificationService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final NotificationRepository _repository;
+  
+  bool _isInitialized = false;
+  String? _currentUserId; // Track current user to detect user change
 
   NotificationService(this._repository);
 
-  Future<void> initialize(String userId) async {
-    // 1. Request Permission
-    final settings = await _firebaseMessaging.requestPermission(
+  /// Requests notification permissions from the user.
+  Future<NotificationSettings> requestPermission() async {
+    return await _firebaseMessaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
+  }
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+  /// Checks the current notification authorization status.
+  Future<AuthorizationStatus> getAuthorizationStatus() async {
+    final settings = await _firebaseMessaging.getNotificationSettings();
+    return settings.authorizationStatus;
+  }
+
+  /// Initializes notification listeners and syncs token.
+  /// Handles: fresh install, re-login, user change, long inactive periods.
+  Future<void> initialize(String userId) async {
+    // CASE 1: Different user logged in (logout → login with different account)
+    if (_currentUserId != null && _currentUserId != userId) {
       if (kDebugMode) {
-        print('User granted permission');
+        debugPrint('Different user detected, resetting notification state...');
       }
+      _isInitialized = false;
+    }
+    
+    // CASE 2: Same user, but force re-sync token (handles long inactive period)
+    // Always sync token on initialize to ensure it's fresh
+    _currentUserId = userId;
+    
+    var status = await getAuthorizationStatus();
+    
+    // CASE 3: Fresh install - permission not yet requested
+    if (status == AuthorizationStatus.notDetermined) {
+      final settings = await requestPermission();
+      status = settings.authorizationStatus;
+    }
 
-      // 2. Get Token
+    if (status == AuthorizationStatus.authorized || 
+        status == AuthorizationStatus.provisional) {
+      
+      // Always sync token (even if already initialized)
+      // This ensures token is always fresh after long inactive periods
+      await _syncToken(userId);
+      
+      // Only set up listeners once
+      if (!_isInitialized) {
+        if (kDebugMode) {
+          debugPrint('Setting up FCM listeners...');
+        }
+        
+        // Listen for Token Refresh
+        _firebaseMessaging.onTokenRefresh.listen((newToken) {
+          if (kDebugMode) {
+            debugPrint('FCM Token refreshed, syncing...');
+          }
+          _repository.saveDeviceToken(newToken, userId);
+        });
+
+        // Handle Foreground Messages
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+          if (kDebugMode) {
+            debugPrint('Foreground message: ${message.notification?.title}');
+          }
+        });
+        
+        _isInitialized = true;
+      }
+    } else {
+      if (kDebugMode) {
+        debugPrint('Notification permission denied');
+      }
+    }
+  }
+
+  /// Call this on logout to reset state for next user.
+  void reset() {
+    _isInitialized = false;
+    _currentUserId = null;
+    if (kDebugMode) {
+      debugPrint('NotificationService reset');
+    }
+  }
+
+  /// Force sync token (useful after long inactive period).
+  Future<void> forceTokenSync(String userId) async {
+    await _syncToken(userId);
+  }
+
+  /// Helper to get and save FCM token.
+  Future<void> _syncToken(String userId) async {
+    try {
       final token = await _firebaseMessaging.getToken();
       if (token != null) {
         if (kDebugMode) {
-          print('FCM Token: $token');
+          debugPrint('FCM Token: ${token.substring(0, 20)}...');
         }
-        // 3. Sync to DB
         await _repository.saveDeviceToken(token, userId);
-      }
-
-      // 4. Listen for Token Refresh
-      _firebaseMessaging.onTokenRefresh.listen((newToken) {
-        _repository.saveDeviceToken(newToken, userId);
-      });
-
-      // 5. Handle Foreground Messages (Optional for now)
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         if (kDebugMode) {
-          print('Got a message whilst in the foreground!');
-          print('Message data: ${message.data}');
+          debugPrint('FCM Token synced successfully');
         }
-         
-        if (message.notification != null) {
-          if (kDebugMode) {
-            print('Message also contained a notification: ${message.notification}');
-          }
-        }
-      });
-    } else {
+      }
+    } catch (e) {
       if (kDebugMode) {
-        print('User declined or has not accepted permission');
+        debugPrint('Error syncing token: $e');
       }
     }
   }

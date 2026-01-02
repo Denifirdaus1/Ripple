@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum TodoPriority { high, medium, low, none }
+enum TodoPriority { high, medium, low }
 
 class Todo extends Equatable {
   final String id;
@@ -21,6 +21,7 @@ class Todo extends Equatable {
   final Map<String, dynamic>? recurrenceRule;
   final String? parentTodoId;
   final bool notificationSent;
+  final int reminderMinutes; // Minutes before start_time to send reminder
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -29,7 +30,7 @@ class Todo extends Equatable {
     required this.userId,
     required this.title,
     this.description,
-    this.priority = TodoPriority.none,
+    this.priority = TodoPriority.medium,  // Match DB default
     this.isCompleted = false,
     this.completedAt,
     this.isScheduled = false,
@@ -42,6 +43,7 @@ class Todo extends Equatable {
     this.recurrenceRule,
     this.parentTodoId,
     this.notificationSent = false,
+    this.reminderMinutes = 5, // Default 5 minutes before
     required this.createdAt,
     required this.updatedAt,
   });
@@ -82,6 +84,7 @@ class Todo extends Equatable {
     Map<String, dynamic>? recurrenceRule,
     String? parentTodoId,
     bool? notificationSent,
+    int? reminderMinutes,
     DateTime? updatedAt,
   }) {
     return Todo(
@@ -102,6 +105,7 @@ class Todo extends Equatable {
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
       parentTodoId: parentTodoId ?? this.parentTodoId,
       notificationSent: notificationSent ?? this.notificationSent,
+      reminderMinutes: reminderMinutes ?? this.reminderMinutes,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -126,6 +130,7 @@ class Todo extends Equatable {
         recurrenceRule,
         parentTodoId,
         notificationSent,
+        reminderMinutes,
         createdAt,
         updatedAt,
       ];

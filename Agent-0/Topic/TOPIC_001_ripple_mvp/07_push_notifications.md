@@ -1,8 +1,8 @@
 # Push Notifications (FCM) - Client Setup
 
 **Parent:** [← Kembali ke Main](_main.md)
-**Status:** 🔧 In Progress
-**Updated:** 2025-12-30
+**Status:** ✅ Done
+**Updated:** 2026-01-01
 
 > [!NOTE]
 > Topic ini hanya berisi **client-side setup** (Flutter & Firebase Console).

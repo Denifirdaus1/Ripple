@@ -11,8 +11,8 @@ abstract class MilestoneRepository {
 
   // Milestone CRUD
   Stream<List<Milestone>> getMilestonesStream(String goalId);
-  Future<void> createMilestone(Milestone milestone);
-  Future<void> updateMilestone(Milestone milestone);
+  Future<Milestone> createMilestone(Milestone milestone);
+  Future<Milestone> updateMilestone(Milestone milestone);
   Future<void> deleteMilestone(String id);
 
   // Todo <-> Milestone Attachment

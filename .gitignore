@@ -50,3 +50,4 @@ app.*.map.json
 .env.example
 .genkit/
 *.txt
+**/service-account.json

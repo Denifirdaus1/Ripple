@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -47,6 +48,8 @@ class NoteEditorCubit extends Cubit<NoteEditorState> {
   final GetNote _getNote;
   final SearchMentions _searchMentions;
 
+  Timer? _debounceTimer;
+
   NoteEditorCubit({
     required SaveNote saveNote,
     required GetNote getNote,
@@ -55,6 +58,12 @@ class NoteEditorCubit extends Cubit<NoteEditorState> {
         _getNote = getNote,
         _searchMentions = searchMentions,
         super(NoteEditorState.initial());
+
+  @override
+  Future<void> close() {
+    _debounceTimer?.cancel();
+    return super.close();
+  }
 
   void loadNote(Note note) {
     emit(state.copyWith(
@@ -78,8 +87,22 @@ class NoteEditorCubit extends Cubit<NoteEditorState> {
     }
   }
 
-  Future<void> save(Map<String, dynamic> contentDelta, String title) async {
-    emit(state.copyWith(status: NoteEditorStatus.saving));
+  /// Triggers a save after a debounce duration.
+  /// Used for auto-saving while typing.
+  void onTextChanged(Map<String, dynamic> contentDelta, String title) {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    
+    _debounceTimer = Timer(const Duration(seconds: 2), () {
+      save(contentDelta, title, isAutoSave: true);
+    });
+  }
+
+  Future<void> save(Map<String, dynamic> contentDelta, String title, {bool isAutoSave = false}) async {
+    // If it's an auto-save, we don't want to show a loading spinner or block UI
+    if (!isAutoSave) {
+      emit(state.copyWith(status: NoteEditorStatus.saving));
+    }
+    
     try {
       var updatedNote = state.note.copyWith(
         title: title,
@@ -92,11 +115,17 @@ class NoteEditorCubit extends Cubit<NoteEditorState> {
          updatedNote = updatedNote.copyWith(userId: userId);
       }
       
-      await _saveNote(updatedNote);
+      final savedNote = await _saveNote(updatedNote);
       
-      emit(state.copyWith(status: NoteEditorStatus.success, note: updatedNote));
+      emit(state.copyWith(
+        status: NoteEditorStatus.success, 
+        note: savedNote,
+      ));
     } catch (e) {
-      emit(state.copyWith(status: NoteEditorStatus.failure));
+      if (!isAutoSave) {
+        emit(state.copyWith(status: NoteEditorStatus.failure));
+      }
+      // For auto-save, we might want to log error silently or set a 'dirty' flag
     }
   }
 

@@ -7,6 +7,10 @@
 ## ✅ Resolved
 | ID | Judul |
 | :--- | :--- |
+| [FIND_004](FIND_004_schema_audit.md) | Schema Audit: Feature vs Database Mismatches |
+| [FIND_003](FIND_003_todo_priority_constraint.md) | Todo Priority Constraint Violation - Schema Mismatch |
+| [FIND_002](FIND_002_auth_session_data_load.md) | Data Tidak Ter-load Setelah Re-login & Unexpected Signout |
 | [FIND_001](FIND_001_todo_schema_sync.md) | Schema Sync: Todo Entity Missing DB Columns |
+| [FIND_007](FIND_007_notification_delivery_failure.md) | Notification Timing & Delivery Failure |
 
-**Ringkasan:** 🔍 0 Open | ✅ 1 Resolved
+**Ringkasan:** 🔍 0 Open | ✅ 5 Resolved

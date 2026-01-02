@@ -2,16 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:syncfusion_flutter_calendar/calendar.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/ripple_page_header.dart';
+import '../../../../core/widgets/auto_scroll_text.dart';
 import '../../domain/entities/todo.dart';
+import '../../data/datasources/todo_calendar_datasource.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/services/notification_service.dart';
 import '../../../../../core/injection/injection_container.dart';
 import '../bloc/todos_overview_bloc.dart';
+import '../bloc/focus_timer_cubit.dart';
 import '../widgets/todo_edit_sheet.dart';
 import '../widgets/todo_item.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+
+/// View modes are now managed by TodosOverviewBloc
 
 class TodosPage extends StatefulWidget {
   const TodosPage({super.key});
@@ -33,112 +40,435 @@ class _TodosPageState extends State<TodosPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openEditSheet(context),
-        backgroundColor: AppColors.rippleBlue,
-        child: const Icon(PhosphorIconsFill.plus, color: Colors.white),
-      ),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: RipplePageHeader(
-              title: 'Tasks',
-              subtitle: 'Stay focused and organized.',
-              action: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(PhosphorIconsRegular.flag, size: 22),
-                    tooltip: 'Goals',
-                    onPressed: () => context.push('/goals'),
-                  ),
-                  IconButton(
-                    icon: const Icon(PhosphorIconsRegular.notePencil, size: 22),
-                    tooltip: 'Notes',
-                    onPressed: () => context.push('/notes'), 
-                  ),
-                  IconButton(
-                    icon: const Icon(PhosphorIconsRegular.signOut),
-                    tooltip: 'Logout',
-                    onPressed: () {
-                       context.read<AuthBloc>().add(AuthLogoutRequested());
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Filter Chips
-          SliverToBoxAdapter(
-            child: _TodosFilterBar(),
-          ),
-          // Todo List
-          BlocBuilder<TodosOverviewBloc, TodosOverviewState>(
-            builder: (context, state) {
-              if (state.status == TodosOverviewStatus.loading) {
-                return const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-              
-              final todos = state.filteredTodos.toList();
-              
-              if (todos.isEmpty) {
-                if (state.status == TodosOverviewStatus.initial) {
-                   return const SliverFillRemaining(
-                    child: Center(child: Text('Loading tasks...')),
-                  );
-                }
-                return const SliverFillRemaining(
-                  child: Center(
-                    child: Text(
-                      'No tasks found.',
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                  ),
-                );
-              }
-
-              return SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final todo = todos[index];
-                      return TodoItem(
-                        todo: todo,
-                        onCheckboxChanged: (val) {
-                          context.read<TodosOverviewBloc>().add(
-                            TodosOverviewTodoSaved(
-                              todo.copyWith(
-                                isCompleted: val ?? false,
-                                completedAt: (val ?? false) ? DateTime.now() : null,
-                              ),
-                            ),
-                          );
+    return BlocBuilder<TodosOverviewBloc, TodosOverviewState>(
+      builder: (context, state) {
+        final viewMode = state.viewMode;
+        
+        return Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              // Header with toggle switch
+              SliverToBoxAdapter(
+                child: RipplePageHeader(
+                  title: viewMode == TodosViewMode.list ? 'Tasks' : 'Schedule',
+                  subtitle: viewMode == TodosViewMode.list 
+                      ? 'Stay focused and organized.' 
+                      : 'Your day at a glance.',
+                  action: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Hamburger menu placeholder
+                      IconButton(
+                        icon: const Icon(PhosphorIconsRegular.list),
+                        tooltip: 'Menu',
+                        onPressed: () {
+                          // TODO: Open menu
                         },
-                        onTap: () {
-                          // Tap to edit or start focus?
-                          // Let's open Focus Timer on tap for now, or edit sheet?
-                          // MVP: Tap to edit. Long press to focus?
-                          // For now, let's just edit on tap.
-                          _openEditSheet(context, todo: todo);
+                      ),
+                      IconButton(
+                        icon: const Icon(PhosphorIconsRegular.signOut),
+                        tooltip: 'Logout',
+                        onPressed: () {
+                          context.read<AuthBloc>().add(AuthLogoutRequested());
                         },
-                      );
-                    },
-                    childCount: todos.length,
+                      ),
+                    ],
                   ),
                 ),
-              );
-            },
+              ),
+              // View Mode Toggle Switch
+              SliverToBoxAdapter(
+                child: _buildViewModeToggle(context, viewMode),
+              ),
+              // Filter bar (only show in list mode)
+              if (viewMode == TodosViewMode.list)
+                SliverToBoxAdapter(
+                  child: _TodosFilterBar(),
+                ),
+              // Content based on mode
+              viewMode == TodosViewMode.list
+                  ? _buildTodoListSliver(context)
+                  : _buildCalendarSliver(context),
+            ],
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  /// Toggle switch for List / Schedule mode
+  Widget _buildViewModeToggle(BuildContext context, TodosViewMode currentMode) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.softGray.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.all(4),
+        child: Row(
+          children: [
+            Expanded(
+              child: _ToggleButton(
+                label: 'List',
+                icon: PhosphorIconsRegular.listChecks,
+                isSelected: currentMode == TodosViewMode.list,
+                onTap: () => context.read<TodosOverviewBloc>().add(
+                  const TodosOverviewViewModeChanged(TodosViewMode.list)
+                ),
+              ),
+            ),
+            Expanded(
+              child: _ToggleButton(
+                label: 'Schedule',
+                icon: PhosphorIconsRegular.calendarBlank,
+                isSelected: currentMode == TodosViewMode.schedule,
+                onTap: () => context.read<TodosOverviewBloc>().add(
+                  const TodosOverviewViewModeChanged(TodosViewMode.schedule)
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _openEditSheet(BuildContext context, {Todo? todo}) {
+  /// Build the todo list as sliver
+  Widget _buildTodoListSliver(BuildContext context) {
+    return BlocBuilder<TodosOverviewBloc, TodosOverviewState>(
+      builder: (context, state) {
+        if (state.status == TodosOverviewStatus.loading) {
+          return const SliverFillRemaining(
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        
+        final todos = state.filteredTodos.toList();
+        
+        if (todos.isEmpty) {
+          if (state.status == TodosOverviewStatus.initial) {
+             return const SliverFillRemaining(
+              child: Center(child: Text('Loading tasks...')),
+            );
+          }
+          return const SliverFillRemaining(
+            child: Center(
+              child: Text(
+                'No tasks found.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+          );
+        }
+
+        return SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final todo = todos[index];
+                return TodoItem(
+                  todo: todo,
+                  onCheckboxChanged: (val) {
+                    context.read<TodosOverviewBloc>().add(
+                      TodosOverviewTodoSaved(
+                        todo.copyWith(
+                          isCompleted: val ?? false,
+                          completedAt: (val ?? false) ? DateTime.now() : null,
+                        ),
+                      ),
+                    );
+                  },
+                  onTap: () {
+                    _openEditSheet(context, todo: todo);
+                  },
+                  onStartFocus: () {
+                    // Start Focus Mode for this todo
+                    context.read<FocusTimerCubit>().startFocusForTodo(todo);
+                    context.go('/focus');
+                  },
+                );
+              },
+              childCount: todos.length,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Build the Syncfusion Calendar as sliver (always shows calendar grid)
+  Widget _buildCalendarSliver(BuildContext context) {
+    return SliverFillRemaining(
+      child: BlocBuilder<TodosOverviewBloc, TodosOverviewState>(
+        builder: (context, state) {
+          if (state.status == TodosOverviewStatus.loading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // Get scheduled todos (can be empty)
+          final allTodos = state.todos.toList();
+          final scheduledTodos = allTodos
+              .where((t) => t.isScheduled && t.startTime != null)
+              .toList();
+
+          // Always show calendar, even if empty
+          return SfCalendar(
+            view: CalendarView.day,
+            dataSource: TodoCalendarDataSource(scheduledTodos),
+            showCurrentTimeIndicator: true,
+            initialDisplayDate: DateTime.now(),
+            todayHighlightColor: AppColors.rippleBlue,
+            cellBorderColor: AppColors.softGray.withValues(alpha: 0.5),
+            backgroundColor: AppColors.paperWhite,
+            headerStyle: CalendarHeaderStyle(
+              textStyle: AppTypography.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              backgroundColor: AppColors.paperWhite,
+              textAlign: TextAlign.center,
+            ),
+            viewHeaderStyle: ViewHeaderStyle(
+              dayTextStyle: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+              dateTextStyle: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+            timeSlotViewSettings: TimeSlotViewSettings(
+              startHour: 6,
+              endHour: 23,
+              timeInterval: const Duration(minutes: 60),
+              timeIntervalHeight: 60,
+              timeTextStyle: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+              ),
+              timelineAppointmentHeight: 50,
+            ),
+            appointmentTextStyle: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+            appointmentBuilder: (context, calendarAppointmentDetails) {
+              final todo = calendarAppointmentDetails.appointments.first as Todo;
+              final color = _getPriorityColor(todo.priority);
+              
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final height = constraints.maxHeight;
+                  final width = constraints.maxWidth;
+                  final showDescription = height > 90;
+                  // Allow vertical stacking of time if block is tall enough
+                  final canStackTime = height > 70; 
+                  
+                  // Format time strings
+                  String timeRange = '';
+                  String startStr = '';
+                  String endStr = '';
+                  if (todo.startTime != null && todo.endTime != null) {
+                    final startHour = todo.startTime!.hour;
+                    final startMin = todo.startTime!.minute;
+                    final endHour = todo.endTime!.hour;
+                    final endMin = todo.endTime!.minute;
+                    final startPeriod = startHour >= 12 ? 'PM' : 'AM';
+                    final endPeriod = endHour >= 12 ? 'PM' : 'AM';
+                    final startH = startHour > 12 ? startHour - 12 : (startHour == 0 ? 12 : startHour);
+                    final endH = endHour > 12 ? endHour - 12 : (endHour == 0 ? 12 : endHour);
+                    
+                    startStr = '${startH.toString().padLeft(2, '0')}:${startMin.toString().padLeft(2, '0')} $startPeriod';
+                    endStr = '${endH.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')} $endPeriod';
+                    timeRange = '$startStr - $endStr';
+                  }
+
+                  // Check for time text overflow using TextPainter
+                  bool timeOverflows = false;
+                  if (timeRange.isNotEmpty) {
+                    final textPainter = TextPainter(
+                      text: TextSpan(
+                        text: timeRange,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      maxLines: 1,
+                      textDirection: TextDirection.ltr,
+                    )..layout(maxWidth: width - 24); // Account for padding/icon
+                    timeOverflows = textPainter.didExceedMaxLines || textPainter.width > (width - 24);
+                  }
+
+                  // Timer style (Vertical stack if overflow + tall, else single line auto-scroll)
+                  final bool useVerticalTime = canStackTime && timeOverflows;
+
+                  return GestureDetector(
+                    onTap: () => _openEditSheet(context, todo: todo),
+                    onLongPress: () {
+                      context.read<TodosOverviewBloc>().add(
+                        TodosOverviewTodoSaved(
+                          todo.copyWith(
+                            isCompleted: !todo.isCompleted,
+                            completedAt: !todo.isCompleted ? DateTime.now() : null,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                      padding: const EdgeInsets.fromLTRB(6, 4, 6, 4), // Compact padding
+                      decoration: BoxDecoration(
+                        color: todo.isCompleted ? color.withValues(alpha: 0.5) : color,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: color.withValues(alpha: 0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // ROW 1: Checkbox - Title (AutoScroll) - FocusButton
+                          Row(
+                            children: [
+                              _buildCheckbox(context, todo, color, 16),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: AutoScrollText(
+                                  todo.title,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13, // Slightly reduced for better fit
+                                    fontWeight: FontWeight.w600,
+                                    decoration: todo.isCompleted ? TextDecoration.lineThrough : null,
+                                  ),
+                                  delay: const Duration(seconds: 6),
+                                ),
+                              ),
+                              if (todo.focusEnabled) ...[
+                                const SizedBox(width: 2),
+                                if (!todo.isCompleted)
+                                  GestureDetector(
+                                    onTap: () {
+                                      context.read<FocusTimerCubit>().startFocusForTodo(todo);
+                                      context.go('/focus');
+                                    },
+                                    child: const Icon(PhosphorIconsFill.playCircle, size: 16, color: Colors.white),
+                                  )
+                                else
+                                  Icon(PhosphorIconsFill.target, size: 14, color: Colors.white.withValues(alpha: 0.9)),
+                              ],
+                            ],
+                          ),
+                          
+                          // ROW 2: Time Display
+                          if (timeRange.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            if (useVerticalTime)
+                              // Vertical Stack: 
+                              // Start
+                              // End
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 1),
+                                    child: Icon(PhosphorIconsRegular.clock, size: 12, color: Colors.white.withValues(alpha: 0.8)),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        startStr,
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.9),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      Text(
+                                        endStr,
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.9),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              )
+                            else
+                              // Single Line (AutoScroll if overflow)
+                              Row(
+                                children: [
+                                  Icon(PhosphorIconsRegular.clock, size: 12, color: Colors.white.withValues(alpha: 0.8)),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: AutoScrollText(
+                                      timeRange,
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.9),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      delay: const Duration(seconds: 6),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          ],
+
+                          // ROW 3: Description (if space permits)
+                          if (showDescription && todo.description != null && todo.description!.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Flexible(
+                              child: Text(
+                                todo.description!,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                  fontSize: 11,
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                }
+              );
+            },
+            onTap: (CalendarTapDetails details) {
+              if (details.appointments == null || details.appointments!.isEmpty) {
+                if (details.targetElement == CalendarElement.calendarCell) {
+                  final tappedDate = details.date;
+                  if (tappedDate != null) {
+                    _openEditSheet(context, scheduledTime: tappedDate);
+                  }
+                }
+              }
+              // Appointment taps are now handled by appointmentBuilder
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  void _openEditSheet(BuildContext context, {Todo? todo, DateTime? scheduledTime}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -149,6 +479,7 @@ class _TodosPageState extends State<TodosPage> {
       builder: (_) {
         return TodoEditSheet(
           initialTodo: todo,
+          scheduledTime: scheduledTime,
           onSave: (newTodo) {
             final userId = Supabase.instance.client.auth.currentUser?.id;
             if (userId != null && newTodo.userId.isEmpty) {
@@ -160,6 +491,93 @@ class _TodosPageState extends State<TodosPage> {
           },
         );
       },
+    );
+  }
+
+  Color _getPriorityColor(TodoPriority priority) {
+    switch (priority) {
+      case TodoPriority.high:
+        return AppColors.coralPink;
+      case TodoPriority.medium:
+        return AppColors.warmTangerine;
+      case TodoPriority.low:
+        return AppColors.rippleBlue;
+    }
+  }
+
+  Widget _buildCheckbox(BuildContext context, Todo todo, Color color, double size) {
+    return GestureDetector(
+      onTap: () {
+        context.read<TodosOverviewBloc>().add(
+          TodosOverviewTodoSaved(
+            todo.copyWith(
+              isCompleted: !todo.isCompleted,
+              completedAt: !todo.isCompleted ? DateTime.now() : null,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: todo.isCompleted ? Colors.white : Colors.transparent,
+          border: Border.all(color: Colors.white, width: 2),
+        ),
+        child: todo.isCompleted
+            ? Icon(PhosphorIconsBold.check, size: size * 0.6, color: color)
+            : null,
+      ),
+    );
+  }
+}
+
+/// Toggle button for view mode switcher
+class _ToggleButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ToggleButton({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.rippleBlue : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected ? Colors.white : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

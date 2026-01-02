@@ -10,9 +10,12 @@ import '../../features/auth/presentation/bloc/login_cubit.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 
 import '../../features/todo/data/repositories/todo_repository_impl.dart';
+import '../../features/todo/data/repositories/focus_repository_impl.dart';
 import '../../features/todo/domain/repositories/todo_repository.dart';
+import '../../features/todo/domain/repositories/focus_repository.dart';
 import '../../features/todo/domain/usecases/todo_usecases.dart';
 import '../../features/todo/presentation/bloc/todos_overview_bloc.dart';
+import '../../features/todo/presentation/bloc/focus_timer_cubit.dart';
 import '../../features/notes/data/repositories/note_repository_impl.dart';
 import '../../features/notes/domain/repositories/note_repository.dart';
 import '../../features/notes/domain/usecases/note_usecases.dart';
@@ -26,6 +29,7 @@ import '../../features/milestone/presentation/bloc/milestone_detail_bloc.dart';
 import '../../features/notification/data/repositories/notification_repository_impl.dart';
 import '../../features/notification/domain/repositories/notification_repository.dart';
 import '../../core/services/notification_service.dart';
+import '../../core/services/session_service.dart';
 
 final sl = GetIt.instance;
 
@@ -88,6 +92,16 @@ Future<void> init() async {
     () => TodoRepositoryImpl(),
   );
 
+  // Focus Sessions
+  sl.registerLazySingleton<FocusRepository>(
+    () => FocusRepositoryImpl(supabase: sl()),
+  );
+  
+  // Focus Timer - Global singleton for background timer
+  sl.registerLazySingleton(
+    () => FocusTimerCubit(focusRepository: sl()),
+  );
+
   //! Core
   // Add core dependencies here
 
@@ -133,4 +147,7 @@ Future<void> init() async {
     () => NotificationRepositoryImpl(supabase: sl()),
   );
   sl.registerLazySingleton(() => NotificationService(sl()));
+
+  // Session Management
+  sl.registerLazySingleton(() => SessionService(sl<SupabaseClient>()));
 }

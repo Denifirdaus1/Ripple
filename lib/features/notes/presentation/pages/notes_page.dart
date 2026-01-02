@@ -13,13 +13,6 @@ class NotesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Navigate to Editor with empty ID implies new note
-          context.push('/notes/editor/new');
-        },
-        child: const Icon(Icons.add),
-      ),
       body: SafeArea(
         child: Column(
           children: [
