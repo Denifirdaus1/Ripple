@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/utils/auth_error_handler.dart';
 import '../../domain/usecases/auth_usecases.dart';
 
 enum LoginStatus { initial, submitting, success, failure, awaitingVerification }
@@ -73,9 +74,14 @@ class LoginCubit extends Cubit<LoginState> {
       await _signInWithGoogle();
       emit(state.copyWith(status: LoginStatus.success));
     } catch (e) {
+      // Don't show error for user-initiated cancellation
+      if (AuthErrorHandler.isCancellationError(e)) {
+        emit(state.copyWith(status: LoginStatus.initial));
+        return;
+      }
       emit(state.copyWith(
         status: LoginStatus.failure,
-        errorMessage: e.toString(),
+        errorMessage: AuthErrorHandler.getUserFriendlyMessage(e),
       ));
     }
   }
@@ -86,18 +92,17 @@ class LoginCubit extends Cubit<LoginState> {
       await _signInWithEmail(email, password);
       emit(state.copyWith(status: LoginStatus.success));
     } catch (e) {
-      final message = e.toString();
-      // Check if email not confirmed
-      if (message.contains('Email not confirmed')) {
+      // Check if email not confirmed - redirect to OTP page
+      if (AuthErrorHandler.requiresEmailVerification(e)) {
         emit(state.copyWith(
           status: LoginStatus.awaitingVerification,
           pendingEmail: email,
-          errorMessage: 'Please verify your email first',
+          errorMessage: AuthErrorHandler.getUserFriendlyMessage(e),
         ));
       } else {
         emit(state.copyWith(
           status: LoginStatus.failure,
-          errorMessage: message,
+          errorMessage: AuthErrorHandler.getUserFriendlyMessage(e),
         ));
       }
     }
@@ -112,10 +117,19 @@ class LoginCubit extends Cubit<LoginState> {
         pendingEmail: email,
       ));
     } catch (e) {
-      emit(state.copyWith(
-        status: LoginStatus.failure,
-        errorMessage: e.toString(),
-      ));
+      // Check if user already registered - suggest sign in instead
+      if (AuthErrorHandler.isUserAlreadyRegistered(e)) {
+        emit(state.copyWith(
+          status: LoginStatus.failure,
+          errorMessage: AuthErrorHandler.getUserFriendlyMessage(e),
+        ));
+        // Could optionally auto-switch to sign-in mode here
+      } else {
+        emit(state.copyWith(
+          status: LoginStatus.failure,
+          errorMessage: AuthErrorHandler.getUserFriendlyMessage(e),
+        ));
+      }
     }
   }
 
@@ -135,7 +149,7 @@ class LoginCubit extends Cubit<LoginState> {
     } catch (e) {
       emit(state.copyWith(
         status: LoginStatus.failure,
-        errorMessage: e.toString(),
+        errorMessage: AuthErrorHandler.getUserFriendlyMessage(e),
       ));
     }
   }
@@ -150,7 +164,7 @@ class LoginCubit extends Cubit<LoginState> {
     } catch (e) {
       emit(state.copyWith(
         status: LoginStatus.failure,
-        errorMessage: e.toString(),
+        errorMessage: AuthErrorHandler.getUserFriendlyMessage(e),
       ));
     }
   }

@@ -59,7 +59,10 @@ class TodoModel extends Todo {
       isCompleted: json['is_completed'] as bool? ?? false,
       completedAt: json['completed_at'] != null ? DateTime.parse(json['completed_at']).toLocal() : null,
       isScheduled: json['is_scheduled'] as bool? ?? false,
-      scheduledDate: json['scheduled_date'] != null ? DateTime.parse(json['scheduled_date']).toLocal() : null,
+      // Parse date-only string as local date (not UTC) to avoid date shifting
+      scheduledDate: json['scheduled_date'] != null 
+          ? DateTime.parse('${json['scheduled_date']}T00:00:00') // Local midnight
+          : null,
       startTime: json['start_time'] != null ? DateTime.parse(json['start_time']).toLocal() : null,
       endTime: json['end_time'] != null ? DateTime.parse(json['end_time']).toLocal() : null,
       focusEnabled: json['focus_enabled'] as bool? ?? false,
@@ -84,7 +87,10 @@ class TodoModel extends Todo {
       'is_completed': isCompleted,
       'completed_at': completedAt?.toUtc().toIso8601String(),
       'is_scheduled': isScheduled,
-      'scheduled_date': scheduledDate?.toUtc().toIso8601String().split('T').first, // Date only
+      // scheduled_date is a DATE type, use local date string directly (no UTC conversion)
+      'scheduled_date': scheduledDate != null 
+          ? '${scheduledDate!.year}-${scheduledDate!.month.toString().padLeft(2, '0')}-${scheduledDate!.day.toString().padLeft(2, '0')}' 
+          : null,
       'start_time': startTime?.toUtc().toIso8601String(),
       'end_time': endTime?.toUtc().toIso8601String(),
       'focus_enabled': focusEnabled,

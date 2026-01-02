@@ -7,6 +7,7 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/home/presentation/pages/main_shell.dart';
 import '../../features/todo/presentation/pages/todos_page.dart';
+import '../../features/todo/presentation/pages/todo_detail_page.dart';
 import '../../features/todo/presentation/pages/focus_timer_page.dart';
 import '../../features/notes/presentation/pages/notes_page.dart';
 import '../../features/notes/presentation/pages/note_editor_page.dart';
@@ -55,6 +56,14 @@ class AppRouter {
                 ..add(MilestoneDetailSubscriptionRequested(goalId)),
               child: GoalDetailPage(goalId: goalId),
             );
+          },
+        ),
+        // Todo Detail - for notification deep linking
+        GoRoute(
+          path: '/todo/:todoId',
+          builder: (context, state) {
+            final todoId = state.pathParameters['todoId']!;
+            return TodoDetailPage(todoId: todoId);
           },
         ),
         // Main Shell with Bottom Navigation

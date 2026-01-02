@@ -74,3 +74,13 @@
 | 18:45 | Fix | FIND_007 | System notification check + settings redirect in TodoEditSheet |
 | 19:38 | Buat Plan | PLAN_019 | Notification Click Navigation & Custom Reminder |
 | 19:45 | Implement | PLAN_019 | Click navigation + reminder dropdown complete |
+
+### 2026-01-02
+| Waktu | Aksi | Ref ID | Deskripsi |
+| :--- | :--- | :--- | :--- |
+| 08:12 | Research | PLAN_020 | Deep research: FCM deep linking, go_router, flutter_local_notifications |
+| 08:15 | Buat Plan | PLAN_020 | Notification Deep Linking to Todo Detail |
+| 08:20 | Implement | PLAN_020 | TodoDetailPage, route, navigation service, SQL function |
+| 21:20 | Audit | Auth | Self-audit auth system: 11 error handling gaps identified |
+| 21:23 | Implement | PLAN_021 | Created AuthErrorHandler, updated LoginCubit with user-friendly messages |
+

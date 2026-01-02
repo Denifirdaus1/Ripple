@@ -24,6 +24,7 @@
 | [PLAN_017](PLAN_017_notification_optimization.md) | FCM Notification Optimization | 🟢 High | 📋 Backlog |
 | [PLAN_018](PLAN_018_todo_notification_integration.md) | Todo Notification Integration | 🔴 High | 📋 Backlog |
 | [PLAN_019](PLAN_019_notification_enhancements.md) | Notification Click Navigation & Custom Reminder | 🔴 High | 📋 Backlog |
+| [PLAN_020](PLAN_020_notification_deep_linking.md) | Notification Deep Linking to Todo Detail | 🔴 High | 📋 Backlog |
 
 ## 📦 Arsip
 | ID | Judul | Status |
@@ -31,4 +32,4 @@
 | PLAN_002 | Schema Security & Performance Fixes | ✅ Selesai |
 | PLAN_001 | Database Schema Implementation (Supabase) | ✅ Selesai |
 
-**Ringkasan:** 🏗️ 1 Active | 📋 6 Backlog | 📦 2 Arsip
+**Ringkasan:** 🏗️ 1 Active | 📋 7 Backlog | 📦 2 Arsip

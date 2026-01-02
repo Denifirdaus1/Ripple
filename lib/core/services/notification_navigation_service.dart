@@ -1,46 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../utils/notification_logger.dart';
 
 /// Service to handle notification-triggered navigation
-/// Uses a global navigator key to navigate from outside widget tree
 class NotificationNavigationService {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   
   /// Pending notification payload to handle when app is ready
   static String? pendingTodoId;
   
-  /// Navigate to todo/schedule page
+  /// Navigate to todo detail page
   static void navigateToTodo(String? todoId) {
-    if (todoId == null || todoId.isEmpty) {
-      debugPrint('NotificationNavigationService: No todoId provided, navigating to home');
-    }
+    final hasContext = navigatorKey.currentContext != null;
+    NotificationLogger.navigationAttempt(todoId, hasContext);
     
-    debugPrint('NotificationNavigationService: Navigating to todo schedule');
-    
-    // Get the current navigator context
     final context = navigatorKey.currentContext;
     if (context == null) {
-      // App not ready yet, save for later
-      debugPrint('NotificationNavigationService: App not ready, saving for later');
+      NotificationLogger.navigationPending(todoId);
       pendingTodoId = todoId;
       return;
     }
     
-    // Navigate to home (which contains the calendar/schedule view)
-    // Using go_router's go() method
     try {
-      context.go('/');
-      debugPrint('NotificationNavigationService: Navigation successful');
+      if (todoId != null && todoId.isNotEmpty) {
+        final route = '/todo/$todoId';
+        context.go(route);
+        NotificationLogger.navigationSuccess(route);
+      } else {
+        context.go('/');
+        NotificationLogger.navigationSuccess('/');
+      }
     } catch (e) {
-      debugPrint('NotificationNavigationService: Navigation error: $e');
+      NotificationLogger.navigationError(e.toString());
+      try {
+        context.go('/');
+      } catch (_) {}
     }
   }
   
-  /// Process any pending navigation (called from main shell after login)
+  /// Process any pending navigation (called from app.dart after build)
   static void processPendingNavigation(BuildContext context) {
+    NotificationLogger.processingPendingNavigation(pendingTodoId);
+    
     if (pendingTodoId != null) {
-      debugPrint('NotificationNavigationService: Processing pending navigation');
-      context.go('/');
+      if (pendingTodoId!.isNotEmpty) {
+        final route = '/todo/$pendingTodoId';
+        context.go(route);
+        NotificationLogger.navigationSuccess(route);
+      } else {
+        context.go('/');
+        NotificationLogger.navigationSuccess('/');
+      }
       pendingTodoId = null;
     }
   }

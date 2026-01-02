@@ -8,6 +8,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'core/injection/injection_container.dart' as di;
 import 'core/services/session_service.dart';
 import 'core/services/notification_navigation_service.dart';
+import 'core/services/timezone_service.dart';
+import 'core/utils/notification_logger.dart';
 import 'app.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,7 +21,7 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 
 // Android Notification Channel for FCM (Required for Android 8+)
 const AndroidNotificationChannel todoRemindersChannel = AndroidNotificationChannel(
-  'todo_reminders', // Must match channel_id from Edge Function
+  'todo_reminders',
   'Todo Reminders',
   description: 'Notifications for scheduled todo reminders',
   importance: Importance.high,
@@ -30,28 +32,45 @@ const AndroidNotificationChannel todoRemindersChannel = AndroidNotificationChann
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  debugPrint('Background message: ${message.notification?.title}');
+  NotificationLogger.fcmBackground(
+    message.notification?.title,
+    message.data,
+  );
+}
+
+/// Handle notification response (tap) from flutter_local_notifications
+@pragma('vm:entry-point')
+void onDidReceiveNotificationResponse(NotificationResponse response) {
+  NotificationLogger.localNotificationTapped(
+    response.id,
+    response.payload,
+    response.actionId,
+  );
+  
+  // Navigate to todo detail page
+  if (response.payload != null && response.payload!.isNotEmpty) {
+    NotificationNavigationService.navigateToTodo(response.payload);
+  } else {
+    NotificationNavigationService.navigateToTodo(null);
+  }
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  NotificationLogger.init('App starting...');
 
-  // Load environment variables
   await dotenv.load(fileName: ".env");
-
-  // Initialize Firebase
   await Firebase.initializeApp();
+  NotificationLogger.init('Firebase initialized');
   
-  // =========================================
-  // NOTIFICATION SETUP (Complete)
-  // =========================================
-  
-  // 1. Create the notification channel (Required for Android 8+)
+  // 1. Create notification channel
   final androidPlugin = flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
   await androidPlugin?.createNotificationChannel(todoRemindersChannel);
+  NotificationLogger.init('Android notification channel created');
   
-  // 2. Initialize FlutterLocalNotificationsPlugin with navigation handler
+  // 2. Initialize FlutterLocalNotificationsPlugin
   const AndroidInitializationSettings androidSettings =
       AndroidInitializationSettings('@mipmap/ic_launcher');
   const InitializationSettings initSettings =
@@ -59,22 +78,37 @@ Future<void> main() async {
   
   await flutterLocalNotificationsPlugin.initialize(
     initSettings,
-    onDidReceiveNotificationResponse: (NotificationResponse response) {
-      debugPrint('Notification tapped: ${response.payload}');
-      // Navigate to todo/schedule when notification is tapped
-      NotificationNavigationService.navigateToTodo(response.payload);
-    },
+    onDidReceiveNotificationResponse: onDidReceiveNotificationResponse,
+    onDidReceiveBackgroundNotificationResponse: onDidReceiveNotificationResponse,
   );
+  NotificationLogger.init('FlutterLocalNotificationsPlugin initialized');
   
-  // 3. Handle FOREGROUND messages - display notification banner
+  // 3. Check if app was launched from local notification tap
+  final NotificationAppLaunchDetails? launchDetails =
+      await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
+  
+  NotificationLogger.init('didNotificationLaunchApp: ${launchDetails?.didNotificationLaunchApp}');
+  
+  if (launchDetails?.didNotificationLaunchApp ?? false) {
+    final payload = launchDetails!.notificationResponse?.payload;
+    NotificationLogger.appLaunchedFromNotification(payload);
+    NotificationNavigationService.pendingTodoId = payload;
+  }
+  
+  // 4. Handle FOREGROUND messages
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    debugPrint('Foreground message received: ${message.notification?.title}');
+    NotificationLogger.fcmForeground(
+      message.notification?.title ?? 'No title',
+      message.notification?.body,
+      message.data,
+    );
     
     final notification = message.notification;
     final android = message.notification?.android;
     
-    // Show notification banner when app is in foreground
     if (notification != null && android != null) {
+      final todoId = message.data['todo_id'] as String?;
+      
       flutterLocalNotificationsPlugin.show(
         notification.hashCode,
         notification.title,
@@ -89,35 +123,44 @@ Future<void> main() async {
             priority: Priority.high,
           ),
         ),
-        payload: message.data['todo_id'],
+        payload: todoId,
       );
+      NotificationLogger.localNotificationShown(notification.title, todoId);
     }
   });
   
-  // 4. Handle notification tap when app is in BACKGROUND
+  // 5. Handle notification tap when app is in BACKGROUND
   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-    debugPrint('Notification opened app from background: ${message.notification?.title}');
+    NotificationLogger.fcmOpenedApp(
+      message.notification?.title,
+      message.data,
+    );
     NotificationNavigationService.navigateToTodo(message.data['todo_id']);
   });
   
-  // 5. Set up background message handler
+  // 6. Set up background message handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   
-  // 6. Handle notification tap when app was TERMINATED
+  // 7. Handle notification tap when app was TERMINATED (FCM)
   final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
   if (initialMessage != null) {
-    debugPrint('App launched from notification: ${initialMessage.notification?.title}');
-    NotificationNavigationService.pendingTodoId = initialMessage.data['todo_id'];
+    NotificationLogger.fcmInitialMessage(
+      initialMessage.notification?.title,
+      initialMessage.data,
+    );
+    if (NotificationNavigationService.pendingTodoId == null) {
+      NotificationNavigationService.pendingTodoId = initialMessage.data['todo_id'];
+    }
   }
   
-  // 7. Set foreground notification presentation options (iOS)
+  // 8. iOS foreground presentation options
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
     alert: true,
     badge: true,
     sound: true,
   );
 
-  // Initialize Supabase with explicit auto-refresh
+  // Initialize Supabase
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
@@ -125,18 +168,19 @@ Future<void> main() async {
       autoRefreshToken: true,
     ),
   );
+  NotificationLogger.init('Supabase initialized');
 
-  // Initialize dependency injection
   await di.init();
-
-  // Initialize session management service
   di.sl<SessionService>().initialize();
-
-  // Initialize Logging
+  
+  // Initialize Timezone (detect device timezone)
+  await di.sl<TimezoneService>().initialize();
+  NotificationLogger.init('Timezone initialized: ${di.sl<TimezoneService>().timezoneName}');
+  
   Bloc.observer = AppBlocObserver();
 
+  NotificationLogger.init('Running app...');
   runApp(const RippleApp());
 }
 
-// Global Supabase client accessor
 final supabase = Supabase.instance.client;

@@ -10,6 +10,7 @@ import '../../../todo/presentation/widgets/todo_edit_sheet.dart';
 import '../../../milestone/presentation/bloc/goal_list_bloc.dart';
 import '../../../milestone/domain/entities/goal.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/timezone_service.dart';
 import 'package:get_it/get_it.dart';
 
 /// Main shell page with bottom navigation bar for the 4 main features
@@ -34,6 +35,8 @@ class _MainShellState extends State<MainShell> {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId != null) {
       GetIt.I<NotificationService>().initialize(userId);
+      // Sync detected timezone to user's profile
+      GetIt.I<TimezoneService>().syncToProfile(userId);
     }
   }
 
