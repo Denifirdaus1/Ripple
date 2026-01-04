@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -28,6 +29,9 @@ class NoteEditorState extends Equatable {
   factory NoteEditorState.initial() {
     return NoteEditorState(note: Note.empty);
   }
+
+  /// Get enabled property IDs directly from note entity
+  List<String> get enabledPropertyIds => note.enabledProperties;
 
   NoteEditorState copyWith({
     NoteEditorStatus? status,
@@ -195,6 +199,40 @@ class NoteEditorCubit extends Cubit<NoteEditorState> {
   void updatePriority(NotePriority? priority) {
     emit(state.copyWith(
       note: state.note.copyWith(priority: priority, clearPriority: priority == null),
+    ));
+  }
+
+  /// Enable a property on this note (persisted to database)
+  void enableProperty(String propertyId) {
+    developer.log('enableProperty called: $propertyId', name: 'NoteEditorCubit');
+    developer.log('Current enabledPropertyIds: ${state.note.enabledProperties}', name: 'NoteEditorCubit');
+    
+    if (state.note.enabledProperties.contains(propertyId)) {
+      developer.log('Property already enabled, skipping', name: 'NoteEditorCubit');
+      return;
+    }
+    
+    final newEnabled = [...state.note.enabledProperties, propertyId];
+    developer.log('New enabledProperties: $newEnabled', name: 'NoteEditorCubit');
+    
+    emit(state.copyWith(
+      note: state.note.copyWith(enabledProperties: newEnabled),
+    ));
+    
+    developer.log('After emit enabledPropertyIds: ${state.note.enabledProperties}', name: 'NoteEditorCubit');
+  }
+
+  /// Disable a property on this note (persisted to database)
+  void disableProperty(String propertyId) {
+    // Don't allow disabling 'date' - it's always required
+    if (propertyId == 'date') return;
+    
+    final newEnabled = state.note.enabledProperties
+        .where((p) => p != propertyId)
+        .toList();
+    
+    emit(state.copyWith(
+      note: state.note.copyWith(enabledProperties: newEnabled),
     ));
   }
 

@@ -16,6 +16,7 @@ import '../bloc/note_bloc.dart';
 import '../widgets/note_properties_section.dart';
 import '../widgets/note_keyboard_toolbar.dart';
 import '../widgets/tag_selector_sheet.dart';
+import '../../../../core/properties/properties.dart';
 
 class NoteEditorPage extends StatelessWidget {
   final String noteId;
@@ -366,6 +367,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                           
                           // Properties Section
                           NotePropertiesSection(
+                            enabledPropertyIds: state.enabledPropertyIds,
                             noteDate: state.note.noteDate,
                             tags: state.note.tags,
                             availableTags: state.availableTags,
@@ -373,12 +375,8 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                             onDateTap: _showDatePicker,
                             onTagsTap: _showTagsEditor,
                             onPriorityTap: _showPriorityPicker,
-                          ),
-                          
-                          // Add Property Button
-                          AddPropertyButton(
-                            onTap: () {
-                              // TODO: Show add property menu
+                            onAddProperty: (propertyId) {
+                              context.read<NoteEditorCubit>().enableProperty(propertyId);
                             },
                           ),
                           

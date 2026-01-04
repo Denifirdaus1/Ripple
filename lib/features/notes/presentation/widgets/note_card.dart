@@ -75,9 +75,8 @@ class NoteCard extends StatelessWidget {
                 if (note.priority != null)
                   _PriorityChip(priority: note.priority!),
                 
-                // Tags (show first tag only to save space)
-                if (note.tags.isNotEmpty)
-                  _TagChip(tag: note.tags.first),
+                // Tags (show all tags)
+                ...note.tags.map((tag) => _TagChip(tag: tag)),
               ],
             ),
           ],

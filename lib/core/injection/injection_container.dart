@@ -32,6 +32,7 @@ import '../../core/services/notification_service.dart';
 import '../../core/services/session_service.dart';
 import '../../core/services/image_upload_service.dart';
 import '../../core/services/timezone_service.dart';
+import '../properties/properties.dart';
 
 final sl = GetIt.instance;
 
@@ -152,6 +153,11 @@ Future<void> init() async {
 
   // Core Services
   sl.registerLazySingleton(() => ImageUploadService(supabaseClient: sl()));
+
+  // Property System
+  sl.registerLazySingleton<PropertyRepository>(
+    () => PropertyRepositoryImpl(supabaseClient: sl()),
+  );
 
   // Session Management
   sl.registerLazySingleton(() => SessionService(sl<SupabaseClient>()));

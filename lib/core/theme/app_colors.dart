@@ -15,6 +15,7 @@ class AppColors {
   static const Color coralRed = coralPink;              // Alias for error color
   static const Color outlineGray = Color(0xFFE0E0E0);   // Borders
   static const Color background = paperWhite;           // Alias for background
+  static const Color cardBackground = Color(0xFF1E1E1E); // Dark card background
 
   // Text Colors
   static const Color textPrimary = inkBlack;

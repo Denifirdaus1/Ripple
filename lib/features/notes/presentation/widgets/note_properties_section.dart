@@ -1,21 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/properties/properties.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/note.dart';
 import '../../domain/entities/note_tag.dart';
 
-/// Notion-style properties section for notes
+/// Sandbox-style properties section for notes.
+/// Shows only enabled properties with Add Property button.
 class NotePropertiesSection extends StatelessWidget {
+  /// List of enabled property IDs (e.g., ['date', 'tags', 'priority'])
+  final List<String> enabledPropertyIds;
+  
+  /// Note data
   final DateTime? noteDate;
   final List<String> tags;
   final List<NoteTag> availableTags;
   final NotePriority? priority;
+  
+  /// Callbacks
   final VoidCallback onDateTap;
   final VoidCallback onTagsTap;
   final VoidCallback onPriorityTap;
+  final void Function(String propertyId) onAddProperty;
 
   const NotePropertiesSection({
     super.key,
+    this.enabledPropertyIds = const ['date'], // Default: only date
     this.noteDate,
     this.tags = const [],
     this.availableTags = const [],
@@ -23,72 +33,95 @@ class NotePropertiesSection extends StatelessWidget {
     required this.onDateTap,
     required this.onTagsTap,
     required this.onPriorityTap,
+    required this.onAddProperty,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Date Property
-        _PropertyRow(
-          icon: Icons.calendar_today_outlined,
-          label: 'Tanggal',
-          onTap: onDateTap,
-          child: Text(
-            noteDate != null 
-                ? DateFormat('dd MMMM yyyy').format(noteDate!) 
-                : 'Kosong',
-            style: TextStyle(
-              color: noteDate != null 
-                  ? AppColors.textPrimary 
-                  : AppColors.textSecondary.withOpacity(0.5),
-              fontSize: 14,
+        // Date Property (always visible if enabled)
+        if (enabledPropertyIds.contains('date'))
+          PropertyRow(
+            definition: DefaultProperties.date,
+            value: noteDate,
+            onTap: onDateTap,
+            valueWidget: Text(
+              noteDate != null 
+                  ? DateFormat('dd MMMM yyyy').format(noteDate!) 
+                  : 'Kosong',
+              style: TextStyle(
+                color: noteDate != null 
+                    ? AppColors.textPrimary 
+                    : AppColors.textSecondary.withOpacity(0.5),
+                fontSize: 14,
+              ),
             ),
           ),
-        ),
         
-        // Tags Property
-        _PropertyRow(
-          icon: Icons.label_outline,
-          label: 'Tag',
-          onTap: onTagsTap,
-          child: tags.isEmpty
-              ? Text(
-                  'Kosong',
-                  style: TextStyle(
-                    color: AppColors.textSecondary.withOpacity(0.5),
-                    fontSize: 14,
+        // Tags Property (if enabled)
+        if (enabledPropertyIds.contains('tags'))
+          PropertyRow(
+            definition: DefaultProperties.tags,
+            value: tags,
+            onTap: onTagsTap,
+            valueWidget: tags.isEmpty
+                ? Text(
+                    'Kosong',
+                    style: TextStyle(
+                      color: AppColors.textSecondary.withOpacity(0.5),
+                      fontSize: 14,
+                    ),
+                  )
+                : Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: tags.map((tagName) {
+                      final tagDef = _findTag(tagName);
+                      return _TagChip(
+                        name: tagName,
+                        color: tagDef?.color ?? Colors.grey,
+                      );
+                    }).toList(),
                   ),
-                )
-              : Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: tags.map((tagName) {
-                    final tagDef = _findTag(tagName);
-                    return _TagChip(
-                      name: tagName,
-                      color: tagDef?.color ?? Colors.grey,
-                    );
-                  }).toList(),
-                ),
-        ),
+          ),
         
-        // Priority Property
-        _PropertyRow(
-          icon: Icons.flag_outlined,
-          label: 'Prioritas',
-          onTap: onPriorityTap,
-          child: priority == null
-              ? Text(
-                  'Kosong',
-                  style: TextStyle(
-                    color: AppColors.textSecondary.withOpacity(0.5),
-                    fontSize: 14,
-                  ),
-                )
-              : _PriorityChip(priority: priority!),
+        // Priority Property (if enabled)
+        if (enabledPropertyIds.contains('priority'))
+          PropertyRow(
+            definition: DefaultProperties.priority,
+            value: priority?.name,
+            onTap: onPriorityTap,
+            valueWidget: priority == null
+                ? Text(
+                    'Kosong',
+                    style: TextStyle(
+                      color: AppColors.textSecondary.withOpacity(0.5),
+                      fontSize: 14,
+                    ),
+                  )
+                : _PriorityChip(priority: priority!),
+          ),
+        
+        // Add Property Button
+        AddPropertyButton(
+          onTap: () => _showAddPropertySheet(context),
         ),
       ],
+    );
+  }
+
+  void _showAddPropertySheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => AddPropertySheet(
+        enabledPropertyIds: enabledPropertyIds,
+        onPropertySelected: onAddProperty,
+      ),
     );
   }
 
@@ -96,7 +129,6 @@ class NotePropertiesSection extends StatelessWidget {
     try {
       return availableTags.firstWhere((t) => t.name == name);
     } catch (_) {
-      // Check defaults
       try {
         return NoteTag.defaults.firstWhere((t) => t.name == name);
       } catch (_) {
@@ -106,48 +138,7 @@ class NotePropertiesSection extends StatelessWidget {
   }
 }
 
-class _PropertyRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Widget child;
-  final VoidCallback onTap;
-
-  const _PropertyRow({
-    required this.icon,
-    required this.label,
-    required this.child,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 18, color: AppColors.textSecondary),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 72,
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            Flexible(child: child),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
+/// Tag chip widget
 class _TagChip extends StatelessWidget {
   final String name;
   final Color color;
@@ -174,6 +165,7 @@ class _TagChip extends StatelessWidget {
   }
 }
 
+/// Priority chip widget
 class _PriorityChip extends StatelessWidget {
   final NotePriority priority;
 
@@ -199,36 +191,6 @@ class _PriorityChip extends StatelessWidget {
           color: color,
           fontSize: 12,
           fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
-
-/// Add Property button
-class AddPropertyButton extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const AddPropertyButton({super.key, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Icon(Icons.add, size: 18, color: AppColors.textSecondary.withOpacity(0.7)),
-            const SizedBox(width: 12),
-            Text(
-              'Tambahkan properti',
-              style: TextStyle(
-                color: AppColors.textSecondary.withOpacity(0.7),
-                fontSize: 14,
-              ),
-            ),
-          ],
         ),
       ),
     );

@@ -32,7 +32,10 @@
 | [PLAN_025](PLAN_025_notecard_fix_sync.md) | Note Card UI Fix & Data Sync Verification | 🔴 High | ✅ Implemented |
 | [PLAN_026](PLAN_026_notes_save_sync_fix.md) | Notes Save/Sync System Fix & FAB Bug | 🔴 High | ✅ Implemented |
 | [PLAN_027](PLAN_027_system_back_autodate.md) | System Back Gesture Fix & Auto-Date Note | 🔴 High | ✅ Implemented |
-| [PLAN_028](PLAN_028_notes_image_upload.md) | Notes Image Upload Feature | 🔴 High | 📋 Backlog |
+| [PLAN_028](PLAN_028_notes_image_upload.md) | Notes Image Upload Feature | 🔴 High | ✅ Implemented |
+| [PLAN_029](PLAN_029_reusable_property_system.md) | Reusable Property Library System | 🔴 High | ✅ Implemented |
+| [PLAN_030](PLAN_030_property_sandbox_system.md) | Property Sandbox System | 🔴 High | ✅ Implemented |
+| [PLAN_031](PLAN_031_entity_properties_persistence.md) | Entity Properties Persistence | 🔴 High | ✅ Implemented |
 
 ## 📦 Arsip
 | ID | Judul | Status |

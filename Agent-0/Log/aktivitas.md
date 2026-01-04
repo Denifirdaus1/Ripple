@@ -103,4 +103,13 @@
 | 11:26 | Implement | PLAN_027 | PopScope canPop:false + auto-date new note |
 | 12:08 | Buat Plan | PLAN_028 | Notes Image Upload Feature |
 | 12:15 | Implement | PLAN_028 | ImageUploadService + UI Integration |
+| 17:23 | Buat Plan | PLAN_029 | Reusable Property Library System |
+| 17:26 | Implement | PLAN_029 | Phase 1: Core Entities (PropertyType, Definition, Value) |
+| 17:34 | Implement | PLAN_029 | Phase 2-4: UI Widgets + Notes Integration |
+| 17:45 | Buat Plan | PLAN_030 | Property Sandbox System |
+| 17:49 | Implement | PLAN_030 | Phase 1-4: DB Schema + Domain + Data + Presentation |
+| 17:56 | Implement | PLAN_030 | Phase 5: Notes Integration (dynamic properties) |
+| 18:52 | Research | PLAN_031 | Entity Properties Persistence strategies |
+| 18:52 | Buat Plan | PLAN_031 | Entity Properties Persistence |
+| 18:56 | Implement | PLAN_031 | All phases: DB + Entity + Model + Cubit |
 
