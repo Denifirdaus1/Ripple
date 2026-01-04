@@ -3,11 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter_quill_extensions/flutter_quill_extensions.dart';
+import '../../../../core/services/image_upload_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../features/todo/domain/entities/todo.dart';
-import '../../../../core/injection/injection_container.dart'; // Correct path
+import '../../../../core/injection/injection_container.dart';
+import '../../domain/entities/note.dart';
+import '../../domain/entities/note_tag.dart';
 import '../bloc/note_editor_cubit.dart';
 import '../bloc/note_bloc.dart';
+import '../widgets/note_properties_section.dart';
+import '../widgets/note_keyboard_toolbar.dart';
+import '../widgets/tag_selector_sheet.dart';
 
 class NoteEditorPage extends StatelessWidget {
   final String noteId;
@@ -34,27 +42,57 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
   final QuillController _controller = QuillController.basic();
   final TextEditingController _titleController = TextEditingController();
   final FocusNode _editorFocusNode = FocusNode();
+  final FocusNode _titleFocusNode = FocusNode();
   StreamSubscription<DocChange>? _editorChangeSubscription;
+  bool _isEditorFocused = false;
 
   @override
   void initState() {
     super.initState();
     final cubit = context.read<NoteEditorCubit>();
+    
+    // Listen to editor changes for auto-save
     _editorChangeSubscription = _controller.document.changes.listen((event) {
       if (!mounted) return;
       final content = _controller.document.toDelta().toJson();
       final title = _titleController.text.trim();
       cubit.onTextChanged({'ops': content}, title);
     });
+
+    // Track editor focus for showing toolbar
+    _editorFocusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    setState(() {
+      _isEditorFocused = _editorFocusNode.hasFocus;
+    });
   }
 
   @override
   void dispose() {
+    // Cancel pending auto-save and do immediate save
     _editorChangeSubscription?.cancel();
+    _editorFocusNode.removeListener(_onFocusChange);
+    _saveImmediately(); // Save before disposing
     _controller.dispose();
     _titleController.dispose();
     _editorFocusNode.dispose();
+    _titleFocusNode.dispose();
     super.dispose();
+  }
+
+  void _saveImmediately() {
+    try {
+      final cubit = context.read<NoteEditorCubit>();
+      final content = _controller.document.toDelta().toJson();
+      final title = _titleController.text.trim();
+      if (title.isNotEmpty || content.isNotEmpty) {
+        cubit.save({'ops': content}, title, isAutoSave: true);
+      }
+    } catch (_) {
+      // Cubit might already be disposed
+    }
   }
 
   void _onNoteLoaded(NoteEditorState state) {
@@ -68,8 +106,27 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
       }
     }
   }
-  
-  void _insertMention(BuildContext context) async {
+
+  Future<void> _saveAndPop() async {
+    final cubit = context.read<NoteEditorCubit>();
+    final content = _controller.document.toDelta().toJson();
+    final title = _titleController.text.trim();
+    
+    // Await save completion before popping
+    await cubit.save({'ops': content}, title, isAutoSave: true);
+    
+    // Notify NoteBloc to update list immediately
+    if (mounted) {
+      try {
+        context.read<NoteBloc>().add(NoteSaved(cubit.state.note));
+      } catch (_) {
+        // NoteBloc might not be available
+      }
+      context.pop();
+    }
+  }
+
+  void _insertMention() async {
     final Todo? todo = await showDialog(
       context: context,
       builder: (_) => BlocProvider.value(
@@ -80,45 +137,136 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
 
     if (todo != null && mounted) {
       final index = _controller.selection.baseOffset;
-      
-      // Insert Text with Link Attribute
-      // Format: "@TodoTitle"
       final text = '@${todo.title}';
       
       _controller.document.insert(index, text);
-      // Apply Attribute to "@TodoTitle"
       _controller.formatText(index, text.length, LinkAttribute('todo://${todo.id}'));
-      // Insert space after without link
       _controller.document.insert(index + text.length, ' ');
     }
   }
 
+  Future<void> _handleImageUpload() async {
+    final service = sl<ImageUploadService>();
+    try {
+      final url = await service.pickAndUploadImage(source: ImageSource.gallery);
+      if (url != null) {
+        final index = _controller.selection.baseOffset;
+        final length = _controller.selection.extentOffset - index;
+        _controller.replaceText(index, length, BlockEmbed.image(url), null);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e')),
+        );
+      }
+    }
+  }
+
   void _handleLinkTap(String url) {
-     if (url.startsWith('todo://')) {
-       final todoId = url.replaceFirst('todo://', '');
-       // Navigate to Todo Edit? 
-       // For now, simpler to just show snackbar or log. 
-       // We haven't implemented Deep Linking to Todo Edit Sheet yet.
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text('Mentioned Todo ID: $todoId')),
-       );
-     }
+    if (url.startsWith('todo://')) {
+      final todoId = url.replaceFirst('todo://', '');
+      context.push('/todos/detail/$todoId');
+    }
+  }
+
+  void _showDatePicker() async {
+    final cubit = context.read<NoteEditorCubit>();
+    final initial = cubit.state.note.noteDate ?? DateTime.now();
+    
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    
+    if (picked != null) {
+      cubit.updateDate(picked);
+    }
+  }
+
+  void _showPriorityPicker() {
+    final cubit = context.read<NoteEditorCubit>();
+    
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.flag, color: Colors.red),
+              title: const Text('Tinggi'),
+              onTap: () {
+                cubit.updatePriority(NotePriority.high);
+                Navigator.pop(ctx);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.flag, color: Colors.orange),
+              title: const Text('Sedang'),
+              onTap: () {
+                cubit.updatePriority(NotePriority.medium);
+                Navigator.pop(ctx);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.flag, color: Colors.blue),
+              title: const Text('Rendah'),
+              onTap: () {
+                cubit.updatePriority(NotePriority.low);
+                Navigator.pop(ctx);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.close, color: AppColors.textSecondary),
+              title: const Text('Hapus Prioritas'),
+              onTap: () {
+                cubit.updatePriority(null);
+                Navigator.pop(ctx);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTagsEditor() {
+    final cubit = context.read<NoteEditorCubit>();
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => BlocProvider.value(
+        value: cubit,
+        child: BlocBuilder<NoteEditorCubit, NoteEditorState>(
+          builder: (context, state) => TagSelectorSheet(
+            selectedTags: state.note.tags,
+            availableTags: state.availableTags,
+            onTagSelected: (tag) => cubit.addTag(tag),
+            onTagRemoved: (tag) => cubit.removeTag(tag),
+            onTagCreated: (name, color) => cubit.createTag(name, color),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<NoteEditorCubit, NoteEditorState>(
       listenWhen: (previous, current) =>
-          previous.status == NoteEditorStatus.loading &&
-          current.status == NoteEditorStatus.success, // Or any success update
+          current.status == NoteEditorStatus.success &&
+          previous.status != current.status,
       listener: (context, state) {
-        if (state.status == NoteEditorStatus.success) {
-           // Notify NoteBloc to update the list manually
-           try {
-             context.read<NoteBloc>().add(NoteSaved(state.note));
-           } catch (e) {
-             // Bloc might not be in context if opened directly or structure differs.
-           }
+        if (state.note.id.isNotEmpty) {
+          try {
+            context.read<NoteBloc>().add(NoteSaved(state.note));
+          } catch (e) {
+            // Bloc might not be in context
+          }
         }
         _onNoteLoaded(state);
       },
@@ -129,101 +277,144 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
           }
 
           return PopScope(
-            canPop: true,
+            canPop: false,  // Block automatic pop to handle save first
             onPopInvokedWithResult: (didPop, result) async {
-              // Auto-save on exit
               if (didPop) return;
-              // If we wanted to block pop, we'd do logic here.
-              // But for simple auto-save, we can just trigger it.
-              // Ideally, we trigger save and let it happen in background? 
-              // Or wait? Waiting on pop is tricky without async gaps.
-              // Since we return true, the pop happens immediately.
-              // We should trigger the save call before popping or fire-and-forget.
+              
+              // Save and notify NoteBloc before popping
               final cubit = context.read<NoteEditorCubit>();
               final content = _controller.document.toDelta().toJson();
               final title = _titleController.text.trim();
-              cubit.save({'ops': content}, title, isAutoSave: true);
+              
+              await cubit.save({'ops': content}, title, isAutoSave: true);
+              
+              // Notify NoteBloc to update list immediately
+              if (context.mounted) {
+                try {
+                  context.read<NoteBloc>().add(NoteSaved(cubit.state.note));
+                } catch (_) {}
+                
+                // Manual pop after save completes
+                Navigator.of(context).pop();
+              }
             },
             child: Scaffold(
               backgroundColor: AppColors.background,
               appBar: AppBar(
                 backgroundColor: AppColors.background,
                 elevation: 0,
-                iconTheme: const IconThemeData(color: AppColors.textPrimary),
                 leading: IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () {
-                    // Manual back button handling to ensure save
-                    final cubit = context.read<NoteEditorCubit>();
-                    final content = _controller.document.toDelta().toJson();
-                    final title = _titleController.text.trim();
-                    cubit.save({'ops': content}, title, isAutoSave: true);
-                    context.pop();
-                  },
+                  icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                  onPressed: _saveAndPop,
                 ),
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.alternate_email),
-                    onPressed: () => _insertMention(context),
-                    tooltip: 'Mention Todo',
+                    icon: const Icon(Icons.ios_share, color: AppColors.textPrimary),
+                    onPressed: () {
+                      // TODO: Share functionality
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.more_horiz, color: AppColors.textPrimary),
+                    onPressed: () {
+                      // TODO: More options menu
+                    },
                   ),
                 ],
               ),
               body: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: TextField(
-                      controller: _titleController,
-                      onChanged: (val) {
-                         final cubit = context.read<NoteEditorCubit>();
-                         final content = _controller.document.toDelta().toJson();
-                         cubit.onTextChanged({'ops': content}, val);
-                      },
-                      decoration: const InputDecoration(
-                        hintText: 'Title',
-                        border: InputBorder.none,
-                        hintStyle: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  QuillSimpleToolbar(
-                    controller: _controller,
-                    config: const QuillSimpleToolbarConfig(
-                      showSearchButton: false, 
-                      showInlineCode: false,
-                      showSubscript: false,
-                      showSuperscript: false,
-                      showFontFamily: false,
-                      showFontSize: false,
-                      toolbarSectionSpacing: 0,
-                    ),
-                  ),
-                  const Divider(),
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: QuillEditor.basic(
-                        controller: _controller,
-                        focusNode: _editorFocusNode,
-                        config: QuillEditorConfig(
-                          placeholder: 'Start typing...',
-                          onLaunchUrl: (url) {
-                            _handleLinkTap(url);
-                          },
-                        ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title Field - Bold, Clean
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: TextField(
+                              controller: _titleController,
+                              focusNode: _titleFocusNode,
+                              onChanged: (val) {
+                                final cubit = context.read<NoteEditorCubit>();
+                                final content = _controller.document.toDelta().toJson();
+                                cubit.onTextChanged({'ops': content}, val);
+                              },
+                              decoration: const InputDecoration(
+                                hintText: 'Judul',
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                filled: false,
+                                fillColor: Colors.transparent,
+                                contentPadding: EdgeInsets.zero,
+                                hintStyle: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 8),
+                          
+                          // Properties Section
+                          NotePropertiesSection(
+                            noteDate: state.note.noteDate,
+                            tags: state.note.tags,
+                            availableTags: state.availableTags,
+                            priority: state.note.priority,
+                            onDateTap: _showDatePicker,
+                            onTagsTap: _showTagsEditor,
+                            onPriorityTap: _showPriorityPicker,
+                          ),
+                          
+                          // Add Property Button
+                          AddPropertyButton(
+                            onTap: () {
+                              // TODO: Show add property menu
+                            },
+                          ),
+                          
+                          const SizedBox(height: 16),
+                          
+                          // Editor Content
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: QuillEditor.basic(
+                              controller: _controller,
+                              focusNode: _editorFocusNode,
+                              config: QuillEditorConfig(
+                                placeholder: 'Catat sesuatu',
+                                minHeight: 300,
+                                embedBuilders: FlutterQuillEmbeds.editorBuilders(),
+                                onLaunchUrl: (url) {
+                                  _handleLinkTap(url);
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
+                  
+                  // Keyboard Toolbar (shows when editor focused)
+                  if (_isEditorFocused)
+                    NoteKeyboardToolbar(
+                      controller: _controller,
+                      onMentionTap: _insertMention,
+                      onImageTap: _handleImageUpload,
+                      onHideKeyboard: () {
+                        _editorFocusNode.unfocus();
+                      },
+                    ),
                 ],
               ),
             ),
@@ -233,6 +424,8 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
     );
   }
 }
+
+// --- Mention Dialog ---
 
 class _MentionDialog extends StatefulWidget {
   const _MentionDialog();
@@ -246,13 +439,21 @@ class _MentionDialogState extends State<_MentionDialog> {
   Timer? _debounce;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NoteEditorCubit>().searchMentions('');
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
   }
 
-  void _onSearchChanged(String query, BuildContext context) {
+  void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
       context.read<NoteEditorCubit>().searchMentions(query);
@@ -264,8 +465,8 @@ class _MentionDialogState extends State<_MentionDialog> {
     return AlertDialog(
       title: TextField(
         controller: _searchController,
-        decoration: const InputDecoration(hintText: 'Search Todos...'),
-        onChanged: (val) => _onSearchChanged(val, context),
+        decoration: const InputDecoration(hintText: 'Cari Todos...'),
+        onChanged: _onSearchChanged,
         autofocus: true,
       ),
       content: SizedBox(
@@ -277,7 +478,7 @@ class _MentionDialogState extends State<_MentionDialog> {
               return const Center(child: CircularProgressIndicator());
             }
             if (state.mentionSearchResults.isEmpty) {
-              return const Center(child: Text('No results'));
+              return const Center(child: Text('Tidak ada hasil'));
             }
             return ListView.builder(
               itemCount: state.mentionSearchResults.length,
@@ -285,13 +486,8 @@ class _MentionDialogState extends State<_MentionDialog> {
                 final todo = state.mentionSearchResults[index];
                 return ListTile(
                   title: Text(todo.title),
-                  subtitle: Text(todo.isCompleted ? 'Completed' : 'Active'),
-                  onTap: () {
-                    // Get Editor Controller from parent or we need to pass it? 
-                    // Wait, we can't access _controller from here directly.
-                    // We need to pass the controller or return the result.
-                    Navigator.of(context).pop(todo); 
-                  },
+                  subtitle: Text(todo.isCompleted ? 'Selesai' : 'Aktif'),
+                  onTap: () => Navigator.of(context).pop(todo),
                 );
               },
             );

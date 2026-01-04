@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:postgrest/postgrest.dart';
 import '../../../../features/todo/data/models/todo_model.dart';
 import '../../../../features/todo/domain/entities/todo.dart';
 import '../../domain/entities/note.dart';
@@ -55,7 +56,7 @@ class NoteRepositoryImpl implements NoteRepository {
   Future<void> _syncMentions(Note note) async {
     try {
       // 1. Parse content to find mentions
-      // Assumption: Mentions are stored in Delta attributes as {'mention': 'todo_id'}
+      // Mentions are stored as LinkAttribute with 'todo://{id}' URL scheme
       final ops = note.content['ops'] as List<dynamic>? ?? [];
       final mentionsToInsert = <Map<String, dynamic>>[];
 
@@ -63,30 +64,31 @@ class NoteRepositoryImpl implements NoteRepository {
         final op = ops[i] as Map<String, dynamic>;
         final attributes = op['attributes'] as Map<String, dynamic>?;
         
-        if (attributes != null && attributes.containsKey('mention')) {
-          final todoId = attributes['mention'] as String;
-          mentionsToInsert.add({
-            'note_id': note.id,
-            'todo_id': todoId,
-            'block_index': i,
-            // 'created_at': DateTime.now().toUtc().toIso8601String(), // DB default
-          });
+        // Check for link attribute with todo:// scheme
+        if (attributes != null && attributes.containsKey('link')) {
+          final link = attributes['link'] as String;
+          if (link.startsWith('todo://')) {
+            final todoId = link.replaceFirst('todo://', '');
+            mentionsToInsert.add({
+              'note_id': note.id,
+              'todo_id': todoId,
+              'block_index': i,
+            });
+          }
         }
       }
 
-      // 2. Clear existing mentions for this note (Simple strategy: Delete All, Insert New)
-      // This handles removals correctly if user deleted a mention from text.
+      // 2. Clear existing mentions for this note (Delete All, Insert New)
       await _supabase.from('note_mentions').delete().eq('note_id', note.id);
 
       // 3. Insert new mentions
       if (mentionsToInsert.isNotEmpty) {
         await _supabase.from('note_mentions').insert(mentionsToInsert);
+        AppLogger.d('Synced ${mentionsToInsert.length} mentions for note: ${note.id}');
       }
     } catch (e, s) {
       AppLogger.e('Failed to sync mentions for note: ${note.id}', e, s);
-      // We might not want to rethrow here to avoid failing the whole save if sync fails?
-      // For now, let's rethrow to be safe.
-      rethrow;
+      // Don't rethrow - mention sync failure shouldn't block note save
     }
   }
 
@@ -109,11 +111,18 @@ class NoteRepositoryImpl implements NoteRepository {
   Future<List<Todo>> searchTodos(String query) async {
     try {
       AppLogger.d('Searching todos with query: $query');
-      final response = await _supabase
-          .from('todos')
-          .select()
-          .ilike('title', '%$query%') // Case insensitive search
-          .limit(10);
+      
+      // Build query - if empty, show recent todos; otherwise filter by title
+      PostgrestFilterBuilder<List<Map<String, dynamic>>> request = 
+          _supabase.from('todos').select();
+      
+      if (query.isNotEmpty) {
+        request = request.ilike('title', '%$query%');
+      }
+      
+      final response = await request
+          .order('created_at', ascending: false)
+          .limit(20);
       
       return (response as List).map((json) => TodoModel.fromJson(json)).toList();
     } catch (e, s) {

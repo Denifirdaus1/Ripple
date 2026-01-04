@@ -30,6 +30,7 @@ import '../../features/notification/data/repositories/notification_repository_im
 import '../../features/notification/domain/repositories/notification_repository.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/session_service.dart';
+import '../../core/services/image_upload_service.dart';
 import '../../core/services/timezone_service.dart';
 
 final sl = GetIt.instance;
@@ -148,6 +149,9 @@ Future<void> init() async {
     () => NotificationRepositoryImpl(supabase: sl()),
   );
   sl.registerLazySingleton(() => NotificationService(sl()));
+
+  // Core Services
+  sl.registerLazySingleton(() => ImageUploadService(supabaseClient: sl()));
 
   // Session Management
   sl.registerLazySingleton(() => SessionService(sl<SupabaseClient>()));

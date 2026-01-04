@@ -59,9 +59,10 @@ class TodoModel extends Todo {
       isCompleted: json['is_completed'] as bool? ?? false,
       completedAt: json['completed_at'] != null ? DateTime.parse(json['completed_at']).toLocal() : null,
       isScheduled: json['is_scheduled'] as bool? ?? false,
-      // Parse date-only string as local date (not UTC) to avoid date shifting
+      // Parse date-only string as LOCAL date using DateTime constructor
+      // DateTime.parse() interprets strings without timezone as UTC, causing date shifts
       scheduledDate: json['scheduled_date'] != null 
-          ? DateTime.parse('${json['scheduled_date']}T00:00:00') // Local midnight
+          ? _parseDateAsLocal(json['scheduled_date'] as String)
           : null,
       startTime: json['start_time'] != null ? DateTime.parse(json['start_time']).toLocal() : null,
       endTime: json['end_time'] != null ? DateTime.parse(json['end_time']).toLocal() : null,
@@ -119,5 +120,17 @@ class TodoModel extends Todo {
       case TodoPriority.medium: return 'medium';
       case TodoPriority.low: return 'low';
     }
+  }
+
+  /// Parse a date-only string (YYYY-MM-DD) as LOCAL DateTime.
+  /// Using DateTime constructor ensures local interpretation,
+  /// unlike DateTime.parse() which defaults to UTC for strings without timezone.
+  static DateTime _parseDateAsLocal(String dateStr) {
+    final parts = dateStr.split('-');
+    return DateTime(
+      int.parse(parts[0]), // year
+      int.parse(parts[1]), // month
+      int.parse(parts[2]), // day
+    );
   }
 }

@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../features/todo/domain/entities/todo.dart';
 import '../../domain/entities/note.dart';
+import '../../domain/entities/note_tag.dart';
+import '../../data/models/note_tag_model.dart';
 import '../../domain/usecases/note_usecases.dart';
 
 enum NoteEditorStatus { initial, loading, success, failure, saving }
@@ -13,12 +15,14 @@ class NoteEditorState extends Equatable {
   final Note note;
   final List<Todo> mentionSearchResults;
   final bool isMentionSearchLoading;
+  final List<NoteTag> availableTags;
 
   const NoteEditorState({
     this.status = NoteEditorStatus.initial,
     required this.note,
     this.mentionSearchResults = const [],
     this.isMentionSearchLoading = false,
+    this.availableTags = const [],
   });
 
   factory NoteEditorState.initial() {
@@ -30,17 +34,19 @@ class NoteEditorState extends Equatable {
     Note? note,
     List<Todo>? mentionSearchResults,
     bool? isMentionSearchLoading,
+    List<NoteTag>? availableTags,
   }) {
     return NoteEditorState(
       status: status ?? this.status,
       note: note ?? this.note,
       mentionSearchResults: mentionSearchResults ?? this.mentionSearchResults,
       isMentionSearchLoading: isMentionSearchLoading ?? this.isMentionSearchLoading,
+      availableTags: availableTags ?? this.availableTags,
     );
   }
 
   @override
-  List<Object> get props => [status, note, mentionSearchResults, isMentionSearchLoading];
+  List<Object> get props => [status, note, mentionSearchResults, isMentionSearchLoading, availableTags];
 }
 
 class NoteEditorCubit extends Cubit<NoteEditorState> {
@@ -74,7 +80,10 @@ class NoteEditorCubit extends Cubit<NoteEditorState> {
 
   Future<void> loadNoteById(String id) async {
     if (id == 'new') {
-      emit(state.copyWith(status: NoteEditorStatus.success, note: Note.empty));
+      // New note: auto-fill date with today
+      final newNote = Note.empty.copyWith(noteDate: DateTime.now());
+      emit(state.copyWith(status: NoteEditorStatus.success, note: newNote));
+      loadTags(); // Load available tags
       return;
     }
     
@@ -82,6 +91,7 @@ class NoteEditorCubit extends Cubit<NoteEditorState> {
     try {
       final note = await _getNote(id);
       emit(state.copyWith(status: NoteEditorStatus.success, note: note));
+      loadTags(); // Load available tags
     } catch (e) {
       emit(state.copyWith(status: NoteEditorStatus.failure));
     }
@@ -92,7 +102,8 @@ class NoteEditorCubit extends Cubit<NoteEditorState> {
   void onTextChanged(Map<String, dynamic> contentDelta, String title) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
     
-    _debounceTimer = Timer(const Duration(seconds: 2), () {
+    // Reduced debounce to 500ms for faster saves
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       save(contentDelta, title, isAutoSave: true);
     });
   }
@@ -130,13 +141,9 @@ class NoteEditorCubit extends Cubit<NoteEditorState> {
   }
 
   Future<void> searchMentions(String query) async {
-    if (query.isEmpty) {
-      emit(state.copyWith(mentionSearchResults: []));
-      return;
-    }
-    
     emit(state.copyWith(isMentionSearchLoading: true));
     try {
+      // Empty query will load recent todos from repository
       final results = await _searchMentions.searchTodos(query);
       emit(state.copyWith(
         mentionSearchResults: results,
@@ -149,5 +156,92 @@ class NoteEditorCubit extends Cubit<NoteEditorState> {
   
   void clearMentions() {
     emit(state.copyWith(mentionSearchResults: []));
+  }
+
+  // --- Property Update Methods ---
+
+  /// Update note date property
+  void updateDate(DateTime? date) {
+    emit(state.copyWith(
+      note: state.note.copyWith(noteDate: date, clearNoteDate: date == null),
+    ));
+  }
+
+  /// Update note tags property
+  void updateTags(List<String> tags) {
+    emit(state.copyWith(
+      note: state.note.copyWith(tags: tags),
+    ));
+  }
+
+  /// Add a single tag
+  void addTag(String tag) {
+    if (tag.isEmpty || state.note.tags.contains(tag)) return;
+    emit(state.copyWith(
+      note: state.note.copyWith(tags: [...state.note.tags, tag]),
+    ));
+  }
+
+  /// Remove a single tag
+  void removeTag(String tag) {
+    emit(state.copyWith(
+      note: state.note.copyWith(
+        tags: state.note.tags.where((t) => t != tag).toList(),
+      ),
+    ));
+  }
+
+  /// Update note priority property
+  void updatePriority(NotePriority? priority) {
+    emit(state.copyWith(
+      note: state.note.copyWith(priority: priority, clearPriority: priority == null),
+    ));
+  }
+
+  /// Load available tags for current user
+  Future<void> loadTags() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+      
+      final response = await Supabase.instance.client
+          .from('user_tags')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      
+      final tags = (response as List)
+          .map((json) => NoteTagModel.fromJson(json))
+          .toList();
+      
+      emit(state.copyWith(availableTags: tags));
+    } catch (e) {
+      // Silently fail - defaults will still be available
+    }
+  }
+
+  /// Create a new tag with custom color
+  Future<void> createTag(String name, String colorHex) async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+      
+      final response = await Supabase.instance.client
+          .from('user_tags')
+          .insert({
+            'user_id': userId,
+            'name': name,
+            'color_hex': colorHex,
+          })
+          .select()
+          .single();
+      
+      final newTag = NoteTagModel.fromJson(response);
+      emit(state.copyWith(
+        availableTags: [newTag, ...state.availableTags],
+      ));
+    } catch (e) {
+      // Tag might already exist, silently fail
+    }
   }
 }

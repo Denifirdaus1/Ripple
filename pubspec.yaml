@@ -70,6 +70,8 @@ dependencies:
   # Calendar View (Syncfusion)
   syncfusion_flutter_calendar: ^32.1.21
   syncfusion_flutter_core: ^32.1.21
+  image_picker: ^1.2.1
+  flutter_image_compress: ^2.4.0
 
 dev_dependencies:
   flutter_test:

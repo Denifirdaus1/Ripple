@@ -7,6 +7,9 @@ class NoteModel extends Note {
     required super.title,
     required super.content,
     super.milestoneId,
+    super.noteDate,
+    super.tags = const [],
+    super.priority,
     required super.createdAt,
     required super.updatedAt,
   });
@@ -18,6 +21,9 @@ class NoteModel extends Note {
       title: note.title,
       content: note.content,
       milestoneId: note.milestoneId,
+      noteDate: note.noteDate,
+      tags: note.tags,
+      priority: note.priority,
       createdAt: note.createdAt,
       updatedAt: note.updatedAt,
     );
@@ -30,6 +36,11 @@ class NoteModel extends Note {
       title: json['title'] as String,
       content: json['content'] as Map<String, dynamic>,
       milestoneId: json['milestone_id'] as String?,
+      noteDate: json['note_date'] != null 
+          ? _parseDateAsLocal(json['note_date'] as String) 
+          : null,
+      tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+      priority: _parsePriority(json['priority'] as String?),
       createdAt: DateTime.parse(json['created_at']).toLocal(),
       updatedAt: DateTime.parse(json['updated_at']).toLocal(),
     );
@@ -42,7 +53,39 @@ class NoteModel extends Note {
       'title': title,
       'content': content,
       'milestone_id': milestoneId,
-      // created_at / updated_at handled by DB defaults usually
+      'note_date': noteDate != null 
+          ? '${noteDate!.year}-${noteDate!.month.toString().padLeft(2, '0')}-${noteDate!.day.toString().padLeft(2, '0')}' 
+          : null,
+      'tags': tags,
+      'priority': _priorityToString(priority),
     };
+  }
+
+  static NotePriority? _parsePriority(String? priority) {
+    switch (priority) {
+      case 'high': return NotePriority.high;
+      case 'medium': return NotePriority.medium;
+      case 'low': return NotePriority.low;
+      default: return null;
+    }
+  }
+
+  static String? _priorityToString(NotePriority? priority) {
+    switch (priority) {
+      case NotePriority.high: return 'high';
+      case NotePriority.medium: return 'medium';
+      case NotePriority.low: return 'low';
+      default: return null;
+    }
+  }
+
+  /// Parse date-only string (YYYY-MM-DD) as LOCAL DateTime
+  static DateTime _parseDateAsLocal(String dateStr) {
+    final parts = dateStr.split('-');
+    return DateTime(
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
   }
 }

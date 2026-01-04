@@ -84,3 +84,23 @@
 | 21:20 | Audit | Auth | Self-audit auth system: 11 error handling gaps identified |
 | 21:23 | Implement | PLAN_021 | Created AuthErrorHandler, updated LoginCubit with user-friendly messages |
 
+### 2026-01-03
+| Waktu | Aksi | Ref ID | Deskripsi |
+| :--- | :--- | :--- | :--- |
+| 20:36 | Buat Plan | PLAN_021 | Fix Notes List Auto-Update (Root cause: listenWhen condition) |
+| 20:36 | Implement | PLAN_021 | Fixed BlocListener condition in note_editor_page.dart |
+| 20:55 | Buat Plan | PLAN_022 | Notes Enhancement & Mention System Fix |
+| 20:56 | Implement | PLAN_022 | Phase 1-3: Fixed mention dialog, sync, and click navigation |
+| 21:07 | Buat Plan | PLAN_023 | Note Editor UI Redesign (Notion-Style) |
+| 21:12 | Implement | PLAN_023 | Schema migration + Note entity/model + UI redesign |
+| 21:45 | Buat Plan | PLAN_024 | Note Editor UI Refinements & Advanced Tags |
+| 22:10 | Implement | PLAN_024 | Schema user_tags + Tag entity/model + UI widgets + Cubit updates |
+| 10:45 | Buat Plan | PLAN_025 | Note Card UI Fix & Data Sync Verification |
+| 10:55 | Implement | PLAN_025 | Fixed NoteCard icons + priority chip UI |
+| 11:13 | Buat Plan | PLAN_026 | Notes Save/Sync System Fix & FAB Bug |
+| 11:16 | Implement | PLAN_026 | NoteBloc notification + FAB hidden on editor |
+| 11:24 | Buat Plan | PLAN_027 | System Back Gesture Fix & Auto-Date Note |
+| 11:26 | Implement | PLAN_027 | PopScope canPop:false + auto-date new note |
+| 12:08 | Buat Plan | PLAN_028 | Notes Image Upload Feature |
+| 12:15 | Implement | PLAN_028 | ImageUploadService + UI Integration |
+

@@ -25,6 +25,14 @@
 | [PLAN_018](PLAN_018_todo_notification_integration.md) | Todo Notification Integration | 🔴 High | 📋 Backlog |
 | [PLAN_019](PLAN_019_notification_enhancements.md) | Notification Click Navigation & Custom Reminder | 🔴 High | 📋 Backlog |
 | [PLAN_020](PLAN_020_notification_deep_linking.md) | Notification Deep Linking to Todo Detail | 🔴 High | 📋 Backlog |
+| [PLAN_021](PLAN_021_notes_auto_update.md) | Fix Notes List Auto-Update | 🔴 High | 📋 Backlog |
+| [PLAN_022](PLAN_022_notes_enhancement.md) | Notes Enhancement & Mention System Fix | 🔴 High | 📋 Backlog |
+| [PLAN_023](PLAN_023_note_editor_redesign.md) | Note Editor UI Redesign (Notion-Style) | 🔴 High | ✅ Implemented |
+| [PLAN_024](PLAN_024_ui_refinement_tags.md) | Note Editor UI Refinements & Advanced Tags | 🔴 High | ✅ Implemented |
+| [PLAN_025](PLAN_025_notecard_fix_sync.md) | Note Card UI Fix & Data Sync Verification | 🔴 High | ✅ Implemented |
+| [PLAN_026](PLAN_026_notes_save_sync_fix.md) | Notes Save/Sync System Fix & FAB Bug | 🔴 High | ✅ Implemented |
+| [PLAN_027](PLAN_027_system_back_autodate.md) | System Back Gesture Fix & Auto-Date Note | 🔴 High | ✅ Implemented |
+| [PLAN_028](PLAN_028_notes_image_upload.md) | Notes Image Upload Feature | 🔴 High | 📋 Backlog |
 
 ## 📦 Arsip
 | ID | Judul | Status |

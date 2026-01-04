@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
-import '../../features/home/presentation/pages/main_shell.dart';
+import '../layout/main_shell.dart';
 import '../../features/todo/presentation/pages/todos_page.dart';
 import '../../features/todo/presentation/pages/todo_detail_page.dart';
 import '../../features/todo/presentation/pages/focus_timer_page.dart';
@@ -37,14 +37,6 @@ class AppRouter {
         GoRoute(
           path: '/login',
           builder: (context, state) => const LoginPage(),
-        ),
-        // Note Editor - outside shell for full screen editing
-        GoRoute(
-          path: '/notes/editor/:noteId',
-          builder: (context, state) {
-            final noteId = state.pathParameters['noteId']!;
-            return NoteEditorPage(noteId: noteId);
-          },
         ),
         // Goal Detail - outside shell for full screen detail
         GoRoute(
@@ -81,6 +73,16 @@ class AppRouter {
               pageBuilder: (context, state) => const NoTransitionPage(
                 child: NotesPage(),
               ),
+            ),
+            // Note Editor - now inside shell to show navbar
+            GoRoute(
+              path: '/notes/editor/:noteId',
+              pageBuilder: (context, state) {
+                final noteId = state.pathParameters['noteId']!;
+                return NoTransitionPage(
+                  child: NoteEditorPage(noteId: noteId),
+                );
+              },
             ),
             GoRoute(
               path: '/focus',

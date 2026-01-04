@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/ripple_card.dart';
-import '../../domain/entities/note.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../domain/entities/note.dart';
 
+/// Redesigned Note Card with consistent icon and property chips
 class NoteCard extends StatelessWidget {
   final Note note;
   final VoidCallback onTap;
@@ -15,59 +14,164 @@ class NoteCard extends StatelessWidget {
     required this.onTap,
   });
 
-  String _getPreviewText() {
-    // Basic extraction from Delta JSON
-    try {
-      final ops = note.content['ops'] as List<dynamic>?;
-      if (ops == null || ops.isEmpty) return 'No content';
-      
-      final buffer = StringBuffer();
-      for (final op in ops) {
-        if (op['insert'] is String) {
-          buffer.write(op['insert']);
-        }
-      }
-      final text = buffer.toString().trim();
-      return text.isEmpty ? 'No content' : text;
-    } catch (e) {
-      return 'Error loading content';
-    }
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.softGray,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Icon - Always the same (notes icon)
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(
+                Icons.description_outlined,
+                size: 20,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Title
+            Text(
+              note.title.isNotEmpty ? note.title : 'Tanpa Judul',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            
+            const SizedBox(height: 8),
+            
+            // Properties row
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                // Date
+                if (note.noteDate != null)
+                  _PropertyChip(
+                    icon: Icons.calendar_today_outlined,
+                    label: DateFormat('dd MMM').format(note.noteDate!),
+                    color: AppColors.textSecondary,
+                  ),
+                
+                // Priority - now as full chip like tags
+                if (note.priority != null)
+                  _PriorityChip(priority: note.priority!),
+                
+                // Tags (show first tag only to save space)
+                if (note.tags.isNotEmpty)
+                  _TagChip(tag: note.tags.first),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
+}
+
+/// Priority chip with full text and background color (like tags)
+class _PriorityChip extends StatelessWidget {
+  final NotePriority priority;
+
+  const _PriorityChip({required this.priority});
 
   @override
   Widget build(BuildContext context) {
-    return RippleCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            note.title.isNotEmpty ? note.title : 'Untitled',
-            style: AppTypography.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _getPreviewText(),
-            style: AppTypography.textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondary,
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            DateFormat.yMMMd().format(note.updatedAt),
-            style: AppTypography.textTheme.labelSmall?.copyWith(
-              color: AppColors.textSecondary.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
+    final (label, color) = switch (priority) {
+      NotePriority.high => ('Penting', Colors.red),
+      NotePriority.medium => ('Sedang', Colors.orange),
+      NotePriority.low => ('Rendah', Colors.blue),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(4),
       ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+/// Tag chip
+class _TagChip extends StatelessWidget {
+  final String tag;
+
+  const _TagChip({required this.tag});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.textSecondary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        tag,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textSecondary.withOpacity(0.8),
+        ),
+      ),
+    );
+  }
+}
+
+/// Generic property chip with icon
+class _PropertyChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _PropertyChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: color.withOpacity(0.6)),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: color.withOpacity(0.6),
+          ),
+        ),
+      ],
     );
   }
 }
