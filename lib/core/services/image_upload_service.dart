@@ -19,7 +19,7 @@ class ImageUploadService {
   /// Returns the public URL of the uploaded image.
   Future<String?> pickAndUploadImage({
     required ImageSource source,
-    int quality = 70,
+    int quality = 50,  // Lower quality = smaller file size (90% reduction target)
     int maxWidth = 1200,
   }) async {
     try {

@@ -392,7 +392,8 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                               focusNode: _editorFocusNode,
                               config: QuillEditorConfig(
                                 placeholder: 'Catat sesuatu',
-                                minHeight: 300,
+                                expands: false,  // Allow content to determine height
+                                padding: const EdgeInsets.only(bottom: 300), // Safe space for scroll
                                 embedBuilders: FlutterQuillEmbeds.editorBuilders(),
                                 onLaunchUrl: (url) {
                                   _handleLinkTap(url);

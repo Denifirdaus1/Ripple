@@ -31,6 +31,38 @@ class NoteKeyboardToolbar extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         children: [
+          // Quick action icons (AI, Image, Voice, Notification)
+          _ToolbarIcon(
+            icon: Icons.auto_awesome_outlined,
+            onTap: () {},
+          ),
+          _ToolbarIcon(
+            icon: Icons.camera_alt_outlined,
+            onTap: onImageTap,
+          ),
+          _ToolbarIcon(
+            icon: Icons.mic_none_outlined,
+            onTap: () {},
+          ),
+          _ToolbarIcon(
+            icon: Icons.notifications_none_outlined,
+            onTap: () {},
+          ),
+          
+          const SizedBox(width: 8),
+          
+          // Undo/Redo
+          _ToolbarIcon(
+            icon: Icons.undo,
+            onTap: controller.hasUndo ? () => controller.undo() : null,
+          ),
+          _ToolbarIcon(
+            icon: Icons.redo,
+            onTap: controller.hasRedo ? () => controller.redo() : null,
+          ),
+          
+          const SizedBox(width: 8),
+          
           // Text formatting
           _ToolbarIcon(
             icon: Icons.format_bold,
@@ -90,38 +122,6 @@ class NoteKeyboardToolbar extends StatelessWidget {
               icon: Icons.alternate_email,
               onTap: onMentionTap,
             ),
-          
-          const SizedBox(width: 8),
-          
-          // Undo/Redo
-          _ToolbarIcon(
-            icon: Icons.undo,
-            onTap: controller.hasUndo ? () => controller.undo() : null,
-          ),
-          _ToolbarIcon(
-            icon: Icons.redo,
-            onTap: controller.hasRedo ? () => controller.redo() : null,
-          ),
-          
-          const SizedBox(width: 8),
-          
-          // New quick action icons
-          _ToolbarIcon(
-            icon: Icons.auto_awesome_outlined,
-            onTap: () {},
-          ),
-          _ToolbarIcon(
-            icon: Icons.camera_alt_outlined,
-            onTap: onImageTap,
-          ),
-          _ToolbarIcon(
-            icon: Icons.mic_none_outlined,
-            onTap: () {},
-          ),
-          _ToolbarIcon(
-            icon: Icons.notifications_none_outlined,
-            onTap: () {},
-          ),
           
           // Hide keyboard
           if (onHideKeyboard != null)
