@@ -33,12 +33,22 @@ class NotesPage extends StatelessWidget {
                     );
                   }
 
+                  // Sort: favorites first, then by createdAt (newest first)
+                  final sortedNotes = List.of(state.notes)
+                    ..sort((a, b) {
+                      // Favorites first
+                      if (a.isFavorite && !b.isFavorite) return -1;
+                      if (!a.isFavorite && b.isFavorite) return 1;
+                      // Then by createdAt (newest first)
+                      return b.createdAt.compareTo(a.createdAt);
+                    });
+
                   return ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemCount: state.notes.length,
+                    itemCount: sortedNotes.length,
                     separatorBuilder: (context, index) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
-                      final note = state.notes[index];
+                      final note = sortedNotes[index];
                       return NoteCard(
                         note: note,
                         onTap: () {

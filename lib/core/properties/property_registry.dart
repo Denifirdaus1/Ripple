@@ -117,15 +117,34 @@ class DefaultProperties {
     options: [], // Options loaded dynamically from user's tag list
   );
 
-  /// Status property (checkbox)
-  static const status = PropertyDefinition(
+  /// Status property (select with 3 options)
+  static final status = PropertyDefinition(
     id: 'status',
     name: 'Status',
-    type: PropertyType.checkbox,
+    type: PropertyType.select,
     icon: Icons.check_circle_outline,
     isSystem: true,
     order: 4,
-    defaultValue: false,
+    options: [
+      const PropertyOption(
+        id: 'not_started',
+        label: 'Belum Dimulai',
+        color: Color(0xFF6B7280), // Gray
+        order: 1,
+      ),
+      const PropertyOption(
+        id: 'in_progress',
+        label: 'Sedang Berjalan',
+        color: Color(0xFF3B82F6), // Blue
+        order: 2,
+      ),
+      const PropertyOption(
+        id: 'done',
+        label: 'Selesai',
+        color: Color(0xFF10B981), // Green
+        order: 3,
+      ),
+    ],
   );
 
   /// Description property (multiline text)

@@ -14,7 +14,7 @@ import '../../domain/entities/note_tag.dart';
 import '../bloc/note_editor_cubit.dart';
 import '../bloc/note_bloc.dart';
 import '../widgets/note_properties_section.dart';
-import '../widgets/note_keyboard_toolbar.dart';
+import '../../../../core/toolbar/toolbar.dart';
 import '../widgets/tag_selector_sheet.dart';
 import '../../../../core/properties/properties.dart';
 
@@ -86,6 +86,11 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
   void _saveImmediately() {
     try {
       final cubit = context.read<NoteEditorCubit>();
+      // Skip save if note was deleted
+      if (cubit.state.isDeleted) {
+        debugPrint('[NoteEditor] Skipping save - note was deleted');
+        return;
+      }
       final content = _controller.document.toDelta().toJson();
       final title = _titleController.text.trim();
       if (title.isNotEmpty || content.isNotEmpty) {
@@ -255,6 +260,75 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
     );
   }
 
+  void _showStatusPicker() {
+    final cubit = context.read<NoteEditorCubit>();
+    
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF6B7280),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              title: const Text('Belum Dimulai'),
+              onTap: () {
+                cubit.updateStatus(NoteWorkStatus.notStarted);
+                Navigator.pop(ctx);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF3B82F6),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              title: const Text('Sedang Berjalan'),
+              onTap: () {
+                cubit.updateStatus(NoteWorkStatus.inProgress);
+                Navigator.pop(ctx);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF10B981),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              title: const Text('Selesai'),
+              onTap: () {
+                cubit.updateStatus(NoteWorkStatus.done);
+                Navigator.pop(ctx);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.close, color: AppColors.textSecondary),
+              title: const Text('Hapus Status'),
+              onTap: () {
+                cubit.updateStatus(null);
+                Navigator.pop(ctx);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<NoteEditorCubit, NoteEditorState>(
@@ -262,7 +336,8 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
           current.status == NoteEditorStatus.success &&
           previous.status != current.status,
       listener: (context, state) {
-        if (state.note.id.isNotEmpty) {
+        // Skip NoteSaved if note was deleted
+        if (state.note.id.isNotEmpty && !state.isDeleted) {
           try {
             context.read<NoteBloc>().add(NoteSaved(state.note));
           } catch (e) {
@@ -282,20 +357,26 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
             onPopInvokedWithResult: (didPop, result) async {
               if (didPop) return;
               
-              // Save and notify NoteBloc before popping
               final cubit = context.read<NoteEditorCubit>();
-              final content = _controller.document.toDelta().toJson();
-              final title = _titleController.text.trim();
               
-              await cubit.save({'ops': content}, title, isAutoSave: true);
-              
-              // Notify NoteBloc to update list immediately
-              if (context.mounted) {
-                try {
-                  context.read<NoteBloc>().add(NoteSaved(cubit.state.note));
-                } catch (_) {}
+              // Skip save and NoteSaved if note was deleted
+              if (!cubit.state.isDeleted) {
+                // Save and notify NoteBloc before popping
+                final content = _controller.document.toDelta().toJson();
+                final title = _titleController.text.trim();
                 
-                // Manual pop after save completes
+                await cubit.save({'ops': content}, title, isAutoSave: true);
+                
+                // Notify NoteBloc to update list immediately
+                if (context.mounted) {
+                  try {
+                    context.read<NoteBloc>().add(NoteSaved(cubit.state.note));
+                  } catch (_) {}
+                }
+              }
+              
+              // Manual pop after save completes (or skip if deleted)
+              if (context.mounted) {
                 Navigator.of(context).pop();
               }
             },
@@ -309,16 +390,83 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                   onPressed: _saveAndPop,
                 ),
                 actions: [
-                  IconButton(
-                    icon: const Icon(Icons.ios_share, color: AppColors.textPrimary),
-                    onPressed: () {
-                      // TODO: Share functionality
-                    },
-                  ),
-                  IconButton(
+                  PopupMenuButton<String>(
                     icon: const Icon(Icons.more_horiz, color: AppColors.textPrimary),
-                    onPressed: () {
-                      // TODO: More options menu
+                    onSelected: (value) async {
+                      debugPrint('[NoteEditor] PopupMenu selected: $value');
+                      final cubit = context.read<NoteEditorCubit>();
+                      
+                      switch (value) {
+                        case 'favorite':
+                          debugPrint('[NoteEditor] Toggling favorite');
+                          cubit.toggleFavorite();
+                          break;
+                        case 'delete':
+                          debugPrint('[NoteEditor] Delete requested');
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Hapus Note'),
+                              content: const Text('Apakah Anda yakin ingin menghapus note ini?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Batal'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
+                            ),
+                          );
+                          
+                          debugPrint('[NoteEditor] Delete confirm: $confirm');
+                          if (confirm == true && context.mounted) {
+                            final noteId = cubit.state.note.id;
+                            await cubit.deleteNote();
+                            if (context.mounted) {
+                              // Notify NoteBloc to update list immediately (optimistic)
+                              try {
+                                context.read<NoteBloc>().add(NoteRemovedFromList(noteId));
+                              } catch (_) {}
+                              Navigator.of(context).pop();
+                            }
+                          }
+                          break;
+                      }
+                    },
+                    itemBuilder: (_) {
+                      debugPrint('[NoteEditor] Building popup menu items');
+                      final isFavorite = context.read<NoteEditorCubit>().state.note.isFavorite;
+                      debugPrint('[NoteEditor] isFavorite: $isFavorite');
+                      
+                      return [
+                        PopupMenuItem(
+                          value: 'favorite',
+                          child: Row(
+                            children: [
+                              Icon(
+                                isFavorite ? Icons.star : Icons.star_outline,
+                                size: 20,
+                                color: isFavorite ? Colors.amber : AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(isFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                              SizedBox(width: 12),
+                              Text('Hapus', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      ];
                     },
                   ),
                 ],
@@ -372,9 +520,15 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                             tags: state.note.tags,
                             availableTags: state.availableTags,
                             priority: state.note.priority,
+                            status: state.note.status,
+                            description: state.note.description,
                             onDateTap: _showDatePicker,
                             onTagsTap: _showTagsEditor,
                             onPriorityTap: _showPriorityPicker,
+                            onStatusTap: _showStatusPicker,
+                            onDescriptionChanged: (value) {
+                              context.read<NoteEditorCubit>().updateDescription(value);
+                            },
                             onAddProperty: (propertyId) {
                               context.read<NoteEditorCubit>().enableProperty(propertyId);
                             },
@@ -406,13 +560,16 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                   
                   // Keyboard Toolbar (shows when editor focused)
                   if (_isEditorFocused)
-                    NoteKeyboardToolbar(
-                      controller: _controller,
-                      onMentionTap: _insertMention,
-                      onImageTap: _handleImageUpload,
-                      onHideKeyboard: () {
-                        _editorFocusNode.unfocus();
-                      },
+                    ExtensibleToolbar(
+                      toolContext: ToolContext(
+                        buildContext: context,
+                        quillController: _controller,
+                        onMentionTap: _insertMention,
+                        onImageTap: _handleImageUpload,
+                        onHideKeyboard: () {
+                          _editorFocusNode.unfocus();
+                        },
+                      ),
                     ),
                 ],
               ),

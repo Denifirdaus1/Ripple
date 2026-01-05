@@ -17,6 +17,7 @@ class NoteEditorState extends Equatable {
   final List<Todo> mentionSearchResults;
   final bool isMentionSearchLoading;
   final List<NoteTag> availableTags;
+  final bool isDeleted;
 
   const NoteEditorState({
     this.status = NoteEditorStatus.initial,
@@ -24,6 +25,7 @@ class NoteEditorState extends Equatable {
     this.mentionSearchResults = const [],
     this.isMentionSearchLoading = false,
     this.availableTags = const [],
+    this.isDeleted = false,
   });
 
   factory NoteEditorState.initial() {
@@ -39,6 +41,7 @@ class NoteEditorState extends Equatable {
     List<Todo>? mentionSearchResults,
     bool? isMentionSearchLoading,
     List<NoteTag>? availableTags,
+    bool? isDeleted,
   }) {
     return NoteEditorState(
       status: status ?? this.status,
@@ -46,11 +49,12 @@ class NoteEditorState extends Equatable {
       mentionSearchResults: mentionSearchResults ?? this.mentionSearchResults,
       isMentionSearchLoading: isMentionSearchLoading ?? this.isMentionSearchLoading,
       availableTags: availableTags ?? this.availableTags,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
   }
 
   @override
-  List<Object> get props => [status, note, mentionSearchResults, isMentionSearchLoading, availableTags];
+  List<Object> get props => [status, note, mentionSearchResults, isMentionSearchLoading, availableTags, isDeleted];
 }
 
 class NoteEditorCubit extends Cubit<NoteEditorState> {
@@ -113,6 +117,12 @@ class NoteEditorCubit extends Cubit<NoteEditorState> {
   }
 
   Future<void> save(Map<String, dynamic> contentDelta, String title, {bool isAutoSave = false}) async {
+    // Skip if note was deleted
+    if (state.isDeleted) {
+      developer.log('Skipping save - note was deleted', name: 'NoteEditorCubit');
+      return;
+    }
+    
     // If it's an auto-save, we don't want to show a loading spinner or block UI
     if (!isAutoSave) {
       emit(state.copyWith(status: NoteEditorStatus.saving));
@@ -200,6 +210,46 @@ class NoteEditorCubit extends Cubit<NoteEditorState> {
     emit(state.copyWith(
       note: state.note.copyWith(priority: priority, clearPriority: priority == null),
     ));
+  }
+
+  /// Update note status
+  void updateStatus(NoteWorkStatus? status) {
+    emit(state.copyWith(
+      note: state.note.copyWith(status: status, clearStatus: status == null),
+    ));
+  }
+
+  /// Update note description
+  void updateDescription(String? description) {
+    final desc = description?.isEmpty == true ? null : description;
+    emit(state.copyWith(
+      note: state.note.copyWith(description: desc, clearDescription: desc == null),
+    ));
+  }
+
+  /// Toggle favorite status
+  void toggleFavorite() {
+    emit(state.copyWith(
+      note: state.note.copyWith(isFavorite: !state.note.isFavorite),
+    ));
+  }
+
+  /// Delete this note
+  Future<void> deleteNote() async {
+    // Cancel any pending auto-save
+    _debounceTimer?.cancel();
+    
+    emit(state.copyWith(status: NoteEditorStatus.loading));
+    
+    try {
+      await Supabase.instance.client
+          .from('notes')
+          .delete()
+          .eq('id', state.note.id);
+      emit(state.copyWith(status: NoteEditorStatus.success, isDeleted: true));
+    } catch (e) {
+      emit(state.copyWith(status: NoteEditorStatus.failure));
+    }
   }
 
   /// Enable a property on this note (persisted to database)

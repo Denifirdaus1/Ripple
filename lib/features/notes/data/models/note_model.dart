@@ -10,6 +10,9 @@ class NoteModel extends Note {
     super.noteDate,
     super.tags = const [],
     super.priority,
+    super.status,
+    super.description,
+    super.isFavorite = false,
     super.enabledProperties = const ['date'],
     required super.createdAt,
     required super.updatedAt,
@@ -25,6 +28,9 @@ class NoteModel extends Note {
       noteDate: note.noteDate,
       tags: note.tags,
       priority: note.priority,
+      status: note.status,
+      description: note.description,
+      isFavorite: note.isFavorite,
       enabledProperties: note.enabledProperties,
       createdAt: note.createdAt,
       updatedAt: note.updatedAt,
@@ -43,6 +49,9 @@ class NoteModel extends Note {
           : null,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       priority: _parsePriority(json['priority'] as String?),
+      status: _parseStatus(json['status'] as String?),
+      description: json['description'] as String?,
+      isFavorite: json['is_favorite'] as bool? ?? false,
       enabledProperties: (json['enabled_properties'] as List<dynamic>?)
           ?.cast<String>() ?? ['date'],
       createdAt: DateTime.parse(json['created_at']).toLocal(),
@@ -62,6 +71,9 @@ class NoteModel extends Note {
           : null,
       'tags': tags,
       'priority': _priorityToString(priority),
+      'status': _statusToString(status),
+      'description': description,
+      'is_favorite': isFavorite,
       'enabled_properties': enabledProperties,
     };
   }
@@ -80,6 +92,24 @@ class NoteModel extends Note {
       case NotePriority.high: return 'high';
       case NotePriority.medium: return 'medium';
       case NotePriority.low: return 'low';
+      default: return null;
+    }
+  }
+
+  static NoteWorkStatus? _parseStatus(String? status) {
+    switch (status) {
+      case 'not_started': return NoteWorkStatus.notStarted;
+      case 'in_progress': return NoteWorkStatus.inProgress;
+      case 'done': return NoteWorkStatus.done;
+      default: return null;
+    }
+  }
+
+  static String? _statusToString(NoteWorkStatus? status) {
+    switch (status) {
+      case NoteWorkStatus.notStarted: return 'not_started';
+      case NoteWorkStatus.inProgress: return 'in_progress';
+      case NoteWorkStatus.done: return 'done';
       default: return null;
     }
   }

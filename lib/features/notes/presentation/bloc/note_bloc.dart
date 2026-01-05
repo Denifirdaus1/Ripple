@@ -28,6 +28,14 @@ class NoteDeleted extends NoteEvent {
   List<Object> get props => [noteId];
 }
 
+/// Event to remove note from UI list only (already deleted from DB)
+class NoteRemovedFromList extends NoteEvent {
+  final String noteId;
+  const NoteRemovedFromList(this.noteId);
+  @override
+  List<Object> get props => [noteId];
+}
+
 class _NoteListUpdated extends NoteEvent {
   final List<Note> notes;
   const _NoteListUpdated(this.notes);
@@ -80,6 +88,7 @@ class NoteBloc extends Bloc<NoteEvent, NoteState> {
     on<_NoteListUpdated>(_onNoteListUpdated);
     on<NoteSaved>(_onNoteSaved); 
     on<NoteDeleted>(_onDeleted);
+    on<NoteRemovedFromList>(_onRemovedFromList);
     on<NoteClearRequested>(_onClearRequested);
   }
 
@@ -144,6 +153,17 @@ class NoteBloc extends Bloc<NoteEvent, NoteState> {
       AppLogger.e('Failed to delete note in Bloc', e, s);
       // Optional: Emit failure state or show snackbar via listener
     }
+  }
+
+  /// Removes note from state list only (DB delete already done elsewhere)
+  void _onRemovedFromList(
+    NoteRemovedFromList event,
+    Emitter<NoteState> emit,
+  ) {
+    AppLogger.d('Removing note from list: ${event.noteId}');
+    final currentNotes = List<Note>.from(state.notes)
+      ..removeWhere((n) => n.id == event.noteId);
+    emit(state.copyWith(status: NoteStatus.success, notes: currentNotes));
   }
 
   /// Clears all notes data and cancels subscription (triggered on logout)

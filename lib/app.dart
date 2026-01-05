@@ -14,6 +14,7 @@ import 'features/todo/presentation/bloc/todos_overview_bloc.dart';
 import 'features/todo/presentation/bloc/focus_timer_cubit.dart';
 import 'features/notes/presentation/bloc/note_bloc.dart';
 import 'features/milestone/presentation/bloc/goal_list_bloc.dart';
+import 'features/folder/presentation/bloc/folder_bloc.dart';
 
 class RippleApp extends StatefulWidget {
   const RippleApp({super.key});
@@ -91,6 +92,9 @@ class _RippleAppState extends State<RippleApp> {
         BlocProvider<GoalListBloc>(
           create: (_) => sl<GoalListBloc>(),
         ),
+        BlocProvider<FolderBloc>(
+          create: (_) => sl<FolderBloc>(),
+        ),
       ],
       child: BlocListener<AuthBloc, AuthState>(
         listenWhen: (previous, current) {
@@ -105,11 +109,13 @@ class _RippleAppState extends State<RippleApp> {
             context.read<TodosOverviewBloc>().add(TodosOverviewSubscriptionRequested());
             context.read<NoteBloc>().add(NoteSubscriptionRequested());
             context.read<GoalListBloc>().add(GoalListSubscriptionRequested());
+            context.read<FolderBloc>().add(FolderSubscriptionRequested());
           } else if (state is Unauthenticated) {
             // User logged out - clear all data
             context.read<TodosOverviewBloc>().add(TodosOverviewClearRequested());
             context.read<NoteBloc>().add(NoteClearRequested());
             context.read<GoalListBloc>().add(GoalListClearRequested());
+            context.read<FolderBloc>().add(FolderClearRequested());
           }
         },
         child: Builder(

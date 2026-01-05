@@ -36,6 +36,11 @@
 | [PLAN_029](PLAN_029_reusable_property_system.md) | Reusable Property Library System | 🔴 High | ✅ Implemented |
 | [PLAN_030](PLAN_030_property_sandbox_system.md) | Property Sandbox System | 🔴 High | ✅ Implemented |
 | [PLAN_031](PLAN_031_entity_properties_persistence.md) | Entity Properties Persistence | 🔴 High | ✅ Implemented |
+| [PLAN_032](PLAN_032_toolbar_sandbox_system.md) | Toolbar Sandbox Extension System | 🔴 High | ✅ Implemented |
+| [PLAN_033](PLAN_033_notes_status_description.md) | Notes Status & Description Properties | 🔴 High | ✅ Implemented |
+| [PLAN_034](PLAN_034_notes_menu_actions.md) | Notes Menu Actions (Delete & Favorite) | 🔴 High | ✅ Implemented |
+| [PLAN_035](PLAN_035_fix_notes_list_update_after_delete.md) | Fix Notes List Update After Delete | 🔴 High | ✅ Implemented |
+| [PLAN_036](PLAN_036_universal_folder_system.md) | Universal Folder System | 🔴 High | ✅ Implemented |
 
 ## 📦 Arsip
 | ID | Judul | Status |

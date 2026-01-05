@@ -34,6 +34,12 @@ import '../../core/services/image_upload_service.dart';
 import '../../core/services/timezone_service.dart';
 import '../properties/properties.dart';
 
+// Folder Feature
+import '../../features/folder/data/repositories/folder_repository_impl.dart';
+import '../../features/folder/domain/repositories/folder_repository.dart';
+import '../../features/folder/domain/usecases/folder_usecases.dart';
+import '../../features/folder/presentation/bloc/folder_bloc.dart';
+
 final sl = GetIt.instance;
 
 Future<void> init() async {
@@ -164,4 +170,36 @@ Future<void> init() async {
 
   // Timezone Management
   sl.registerLazySingleton(() => TimezoneService());
+
+  //! Features - Folder
+  // Bloc
+  sl.registerFactory(
+    () => FolderBloc(
+      getFoldersStream: sl(),
+      getFolderContents: sl(),
+      getInboxContents: sl(),
+      createFolder: sl(),
+      updateFolder: sl(),
+      deleteFolder: sl(),
+      addItemToFolder: sl(),
+      removeItemFromFolder: sl(),
+      moveFolder: sl(),
+    ),
+  );
+
+  // Use Cases
+  sl.registerLazySingleton(() => GetFoldersStream(sl()));
+  sl.registerLazySingleton(() => GetFolderContents(sl()));
+  sl.registerLazySingleton(() => GetInboxContents(sl()));
+  sl.registerLazySingleton(() => CreateFolder(sl()));
+  sl.registerLazySingleton(() => UpdateFolder(sl()));
+  sl.registerLazySingleton(() => DeleteFolder(sl()));
+  sl.registerLazySingleton(() => AddItemToFolder(sl()));
+  sl.registerLazySingleton(() => RemoveItemFromFolder(sl()));
+  sl.registerLazySingleton(() => MoveFolder(sl()));
+
+  // Repository
+  sl.registerLazySingleton<FolderRepository>(
+    () => FolderRepositoryImpl(supabase: sl()),
+  );
 }

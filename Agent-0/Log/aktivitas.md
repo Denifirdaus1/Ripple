@@ -112,4 +112,15 @@
 | 18:52 | Research | PLAN_031 | Entity Properties Persistence strategies |
 | 18:52 | Buat Plan | PLAN_031 | Entity Properties Persistence |
 | 18:56 | Implement | PLAN_031 | All phases: DB + Entity + Model + Cubit |
+| 11:04 | Buat Plan | PLAN_032 | Toolbar Sandbox Extension System |
+| 11:08 | Implement | PLAN_032 | All phases: Domain + Registry + Tools + UI + Migration |
+| 12:11 | Buat Plan | PLAN_033 | Notes Status & Description Properties |
+| 12:34 | Implement | PLAN_033 | All phases: DB + Entity + Model + Registry + Cubit + UI + NoteCard |
+| 13:55 | Buat Plan | PLAN_034 | Notes Menu Actions (Delete & Favorite) |
+| 16:56 | Implement | PLAN_034 | All phases: DB + Entity + Model + Cubit + UI + NoteCard |
+| 18:48 | Buat Plan | PLAN_035 | Fix Notes List Update After Delete |
+| 18:50 | Implement | PLAN_035 | Added isDeleted guards to PopScope + BlocListener |
+| 18:52 | Fix | Notes | Sort favorites to top in notes_page.dart |
+| 19:03 | Buat Topic | TOPIC_004 | Universal Folder System |
+| 19:03 | Buat Plan | PLAN_036 | Universal Folder System Implementation |
 
