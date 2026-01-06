@@ -1,121 +1,66 @@
-# Ripple
+# Ripple 🌊
 
-<p align="center">
-  <img src="assets/icons/app_icon.png" width="120" alt="Ripple Logo">
-</p>
+**Ripple** adalah aplikasi produktivitas *all-in-one* yang dibangun dengan Flutter. Aplikasi ini mengintegrasikan manajemen tugas, mode fokus, catatan, dan pelacakan tujuan ke dalam satu platform yang kohesif untuk membantu Anda mencapai lebih banyak hal setiap hari.
 
-<p align="center">
-  <strong>Your All-in-One Productivity Companion</strong>
-</p>
+## 🚀 Fitur Utama
 
----
+### ✅ Todo List
+Kelola tugas harian Anda dengan mudah. Prioritaskan pekerjaan, atur tenggat waktu, dan tandai penyelesaian untuk tetap terorganisir.
 
-## 📱 About Ripple
+### ⏱️ Focus Mode (Pomodoro)
+Tingkatkan produktivitas dengan teknik Pomodoro terintegrasi. Tetapkan sesi fokus untuk bekerja tanpa gangguan dan istirahat sejenak untuk menjaga stamina mental.
 
-**Ripple** is a productivity application built with Flutter that integrates essential productivity tools into a single, cohesive platform. It helps you manage daily tasks and achieve long-term goals effectively.
+### 📝 Notes
+Tangkap ide, buat draf, dan simpan catatan penting. Mendukung pemformatan teks kaya (rich text) untuk fleksibilitas pencatatan yang maksimal.
 
-### Core Features
-
-- 📋 **Todo List** - Manage your daily tasks with priorities, due dates, and smart reminders
-- ⏱️ **Focus Mode** - Pomodoro-style timer to boost your concentration and productivity
-- 📝 **Notes** - Rich text editor with folder organization for your ideas and documentation
-- 🎯 **Milestones** - Track your long-term goals and celebrate your achievements
+### 🎯 Milestones & Goals
+Lacak tujuan jangka panjang Anda. Pecah tujuan besar menjadi *milestone* yang dapat dicapai untuk memantau kemajuan Anda secara visual.
 
 ---
 
-## 🏗️ Architecture
+## 🛠️ Teknologi
 
-Ripple follows **Clean Architecture** principles for maintainable and scalable code:
+Ripple dibangun menggunakan teknologi modern untuk performa dan pengalaman pengguna terbaik:
 
-```
-lib/
-├── core/           # Shared utilities, config, errors, and widgets
-└── features/       # Feature-specific modules
-    ├── auth/       # Authentication
-    ├── todo/       # Task management
-    ├── notes/      # Note-taking
-    ├── focus/      # Focus/Pomodoro timer
-    └── goals/      # Milestones & goals
-```
-
-Each feature module is organized into three layers:
-- **Presentation** - UI (Pages, Widgets) and Logic (Bloc/Cubit)
-- **Domain** - Entities, Use Cases, Repository Interfaces
-- **Data** - DTOs, Repository Implementations, Data Sources
+*   **Framework:** Flutter (Dart)
+*   **Backend:** Supabase
+*   **State Management:** flutter_bloc
+*   **Architecture:** Clean Architecture (Feature-first)
 
 ---
 
-## 🛠️ Tech Stack
+## 💻 Cara Menjalankan
 
-| Category | Technology |
-|----------|------------|
-| Framework | Flutter (Dart) |
-| Backend | Supabase |
-| State Management | flutter_bloc |
-| Dependency Injection | get_it |
+Pastikan Anda telah menginstal **Flutter SDK** pada mesin Anda.
 
----
+1.  **Clone repository ini:**
+    ```bash
+    git clone <repository-url>
+    cd ripple
+    ```
 
-## 🚀 Getting Started
+2.  **Install dependencies:**
+    ```bash
+    flutter pub get
+    ```
 
-### Prerequisites
-
-1. **Flutter SDK** - Ensure Flutter is installed
-   ```bash
-   flutter doctor
-   ```
-
-2. **Environment Setup** - Create a `.env` file in the root directory with your configuration
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/Denifirdaus1/Ripple.git
-
-# Navigate to project directory
-cd ripple
-
-# Install dependencies
-flutter pub get
-
-# Run the app
-flutter run
-```
-
-### Available Commands
-
-| Command | Description |
-|---------|-------------|
-| `flutter run` | Run development build |
-| `flutter test` | Run unit tests |
-| `flutter analyze` | Analyze code for issues |
-| `flutter build apk` | Build Android APK |
-| `flutter build ios` | Build iOS app (macOS only) |
+3.  **Jalankan aplikasi:**
+    ```bash
+    flutter run
+    ```
 
 ---
 
-## 📝 Development
+## 📱 Build
 
-### Coding Standards
+Untuk membuat file instalasi (APK/IPA):
 
-- Follow standard Dart/Flutter conventions
-- Linting enforced via `flutter_lints`
-- File naming: `underscore_case`
-- Class naming: `PascalCase`
+*   **Android:**
+    ```bash
+    flutter build apk --release
+    ```
 
-### Project Status
-
-**Current Phase:** MVP (Minimum Viable Product)
-
----
-
-## 📄 License
-
-This project is private and proprietary.
-
----
-
-<p align="center">
-  Made with ❤️ using Flutter
-</p>
+*   **iOS:** (Membutuhkan macOS)
+    ```bash
+    flutter build ios --release
+    ```
