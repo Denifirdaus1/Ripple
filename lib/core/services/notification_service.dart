@@ -1,29 +1,36 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../../features/notification/domain/repositories/notification_repository.dart';
+import 'notification_permission_helper.dart';
 
 class NotificationService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final NotificationRepository _repository;
-  
+
   bool _isInitialized = false;
   String? _currentUserId; // Track current user to detect user change
 
   NotificationService(this._repository);
 
   /// Requests notification permissions from the user.
-  Future<NotificationSettings> requestPermission() async {
-    return await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+  /// Uses platform-aware helper for Android 13+ compatibility.
+  Future<bool> requestPermission() async {
+    return await NotificationPermissionHelper.requestPermission();
   }
 
-  /// Checks the current notification authorization status.
-  Future<AuthorizationStatus> getAuthorizationStatus() async {
-    final settings = await _firebaseMessaging.getNotificationSettings();
-    return settings.authorizationStatus;
+  /// Checks if notification permission is currently granted.
+  Future<bool> isPermissionGranted() async {
+    return await NotificationPermissionHelper.isGranted();
+  }
+
+  /// Checks if permission is permanently denied (Android only).
+  Future<bool> isPermissionPermanentlyDenied() async {
+    return await NotificationPermissionHelper.isPermanentlyDenied();
+  }
+
+  /// Opens app settings for the user to enable notifications manually.
+  Future<bool> openNotificationSettings() async {
+    return await NotificationPermissionHelper.openSettings();
   }
 
   /// Initializes notification listeners and syncs token.
@@ -36,32 +43,25 @@ class NotificationService {
       }
       _isInitialized = false;
     }
-    
+
     // CASE 2: Same user, but force re-sync token (handles long inactive period)
     // Always sync token on initialize to ensure it's fresh
     _currentUserId = userId;
-    
-    var status = await getAuthorizationStatus();
-    
-    // CASE 3: Fresh install - permission not yet requested
-    if (status == AuthorizationStatus.notDetermined) {
-      final settings = await requestPermission();
-      status = settings.authorizationStatus;
-    }
 
-    if (status == AuthorizationStatus.authorized || 
-        status == AuthorizationStatus.provisional) {
-      
+    // Use platform-aware permission request (Android 13+ compatible)
+    final hasPermission = await requestPermission();
+
+    if (hasPermission) {
       // Always sync token (even if already initialized)
       // This ensures token is always fresh after long inactive periods
       await _syncToken(userId);
-      
+
       // Only set up listeners once
       if (!_isInitialized) {
         if (kDebugMode) {
           debugPrint('Setting up FCM listeners...');
         }
-        
+
         // Listen for Token Refresh
         _firebaseMessaging.onTokenRefresh.listen((newToken) {
           if (kDebugMode) {
@@ -76,7 +76,7 @@ class NotificationService {
             debugPrint('Foreground message: ${message.notification?.title}');
           }
         });
-        
+
         _isInitialized = true;
       }
     } else {

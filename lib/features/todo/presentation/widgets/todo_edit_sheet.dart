@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:get_it/get_it.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../../../core/services/notification_service.dart';
@@ -18,8 +17,8 @@ class TodoEditSheet extends StatefulWidget {
   final ValueChanged<Todo> onSave;
 
   const TodoEditSheet({
-    super.key, 
-    this.initialTodo, 
+    super.key,
+    this.initialTodo,
     this.scheduledTime,
     required this.onSave,
   });
@@ -34,7 +33,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
   late TodoPriority _priority;
   late bool _focusEnabled;
   late int _focusDurationMinutes;
-  
+
   // Schedule Fields
   late bool _isScheduled;
   late DateTime _selectedDate;
@@ -46,7 +45,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
   void initState() {
     super.initState();
     final todo = widget.initialTodo;
-    
+
     _titleController = TextEditingController(text: todo?.title ?? '');
     _descController = TextEditingController(text: todo?.description ?? '');
     _priority = todo?.priority ?? TodoPriority.medium;
@@ -55,8 +54,9 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
 
     // Initialize Schedule
     _isScheduled = todo?.isScheduled ?? (widget.scheduledTime != null);
-    _selectedDate = todo?.scheduledDate ?? widget.scheduledTime ?? DateTime.now();
-    
+    _selectedDate =
+        todo?.scheduledDate ?? widget.scheduledTime ?? DateTime.now();
+
     if (todo?.startTime != null) {
       _startTime = TimeOfDay.fromDateTime(todo!.startTime!);
     } else if (widget.scheduledTime != null) {
@@ -68,9 +68,12 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
     if (todo?.endTime != null) {
       _endTime = TimeOfDay.fromDateTime(todo!.endTime!);
     } else {
-      _endTime = TimeOfDay(hour: _startTime.hour + 1, minute: _startTime.minute);
+      _endTime = TimeOfDay(
+        hour: _startTime.hour + 1,
+        minute: _startTime.minute,
+      );
     }
-    
+
     // Initialize reminder minutes
     _reminderMinutes = todo?.reminderMinutes ?? 5;
   }
@@ -106,7 +109,10 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
         if (isStart) {
           _startTime = picked;
           // Auto-adjust end time to be 1 hour after start
-          _endTime = TimeOfDay(hour: (picked.hour + 1) % 24, minute: picked.minute);
+          _endTime = TimeOfDay(
+            hour: (picked.hour + 1) % 24,
+            minute: picked.minute,
+          );
         } else {
           _endTime = picked;
         }
@@ -130,13 +136,21 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
   void _submit() {
     if (_titleController.text.trim().isEmpty) return;
 
-    final baseDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final baseDate = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    );
     DateTime? startDateTime;
     DateTime? endDateTime;
 
     if (_isScheduled) {
-      startDateTime = baseDate.add(Duration(hours: _startTime.hour, minutes: _startTime.minute));
-      endDateTime = baseDate.add(Duration(hours: _endTime.hour, minutes: _endTime.minute));
+      startDateTime = baseDate.add(
+        Duration(hours: _startTime.hour, minutes: _startTime.minute),
+      );
+      endDateTime = baseDate.add(
+        Duration(hours: _endTime.hour, minutes: _endTime.minute),
+      );
 
       // Validate: endTime must be > startTime (DB constraint)
       if (!endDateTime.isAfter(startDateTime)) {
@@ -233,7 +247,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
               maxLines: 2,
             ),
             const SizedBox(height: 20),
-            
+
             // Priority Section
             Text('Priority', style: AppTypography.textTheme.labelLarge),
             const SizedBox(height: 8),
@@ -250,7 +264,9 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
                     },
                     selectedColor: _getPriorityColor(p),
                     labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : AppColors.textSecondary,
+                      color: isSelected
+                          ? Colors.white
+                          : AppColors.textSecondary,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -266,7 +282,11 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
               children: [
                 Row(
                   children: [
-                    const Icon(PhosphorIconsRegular.calendar, size: 20, color: AppColors.textPrimary),
+                    const Icon(
+                      PhosphorIconsRegular.calendar,
+                      size: 20,
+                      color: AppColors.textPrimary,
+                    ),
                     const SizedBox(width: 8),
                     Text('Schedule', style: AppTypography.textTheme.titleSmall),
                   ],
@@ -277,13 +297,18 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
                   onChanged: (val) async {
                     if (val) {
                       // Step 1: Check if system notifications are enabled
-                      final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+                      final FlutterLocalNotificationsPlugin
+                      flutterLocalNotificationsPlugin =
                           FlutterLocalNotificationsPlugin();
                       final androidPlugin = flutterLocalNotificationsPlugin
-                          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-                      
-                      final areNotificationsEnabled = await androidPlugin?.areNotificationsEnabled() ?? false;
-                      
+                          .resolvePlatformSpecificImplementation<
+                            AndroidFlutterLocalNotificationsPlugin
+                          >();
+
+                      final areNotificationsEnabled =
+                          await androidPlugin?.areNotificationsEnabled() ??
+                          false;
+
                       if (!areNotificationsEnabled) {
                         // Show dialog to redirect to system settings
                         if (mounted) {
@@ -292,15 +317,17 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
                             builder: (context) => AlertDialog(
                               title: const Text('Enable Notifications'),
                               content: const Text(
-                                'To receive reminders for scheduled tasks, please enable notifications in your device settings.'
+                                'To receive reminders for scheduled tasks, please enable notifications in your device settings.',
                               ),
                               actions: [
                                 TextButton(
-                                  onPressed: () => Navigator.of(context).pop(false),
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(false),
                                   child: const Text('Cancel'),
                                 ),
                                 ElevatedButton(
-                                  onPressed: () => Navigator.of(context).pop(true),
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(true),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.rippleBlue,
                                   ),
@@ -309,26 +336,29 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
                               ],
                             ),
                           );
-                          
+
                           if (shouldOpenSettings == true) {
                             // Open notification settings
-                            await androidPlugin?.requestNotificationsPermission();
+                            await androidPlugin
+                                ?.requestNotificationsPermission();
                           }
                         }
                         return; // Don't enable schedule until notifications are enabled
                       }
-                      
-                      // Step 2: Check FCM permission
+
+                      // Step 2: Check and request FCM permission using new API
                       final service = GetIt.I<NotificationService>();
-                      final status = await service.getAuthorizationStatus();
-                      
-                      if (status != AuthorizationStatus.authorized) {
-                        final result = await service.requestPermission();
-                        if (result.authorizationStatus != AuthorizationStatus.authorized) {
+                      final isGranted = await service.isPermissionGranted();
+
+                      if (!isGranted) {
+                        final granted = await service.requestPermission();
+                        if (!granted) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Notification permission is required for reminders.'),
+                                content: Text(
+                                  'Notification permission is required for reminders.',
+                                ),
                                 backgroundColor: AppColors.coralPink,
                               ),
                             );
@@ -336,9 +366,10 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
                           return; // Don't enable if permission denied
                         }
                       }
-                      
+
                       // Step 3: Sync FCM token
-                      final userId = Supabase.instance.client.auth.currentUser?.id;
+                      final userId =
+                          Supabase.instance.client.auth.currentUser?.id;
                       if (userId != null) {
                         await service.initialize(userId);
                       }
@@ -388,12 +419,19 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
               // Reminder Time Dropdown
               Row(
                 children: [
-                  const Icon(PhosphorIconsRegular.bellRinging, size: 20, color: AppColors.textPrimary),
+                  const Icon(
+                    PhosphorIconsRegular.bellRinging,
+                    size: 20,
+                    color: AppColors.textPrimary,
+                  ),
                   const SizedBox(width: 8),
                   Text('Remind me', style: AppTypography.textTheme.titleSmall),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.softGray,
                       borderRadius: BorderRadius.circular(8),
@@ -404,11 +442,26 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
                         value: _reminderMinutes,
                         isDense: true,
                         items: const [
-                          DropdownMenuItem(value: 5, child: Text('5 min before')),
-                          DropdownMenuItem(value: 10, child: Text('10 min before')),
-                          DropdownMenuItem(value: 15, child: Text('15 min before')),
-                          DropdownMenuItem(value: 30, child: Text('30 min before')),
-                          DropdownMenuItem(value: 60, child: Text('1 hour before')),
+                          DropdownMenuItem(
+                            value: 5,
+                            child: Text('5 min before'),
+                          ),
+                          DropdownMenuItem(
+                            value: 10,
+                            child: Text('10 min before'),
+                          ),
+                          DropdownMenuItem(
+                            value: 15,
+                            child: Text('15 min before'),
+                          ),
+                          DropdownMenuItem(
+                            value: 30,
+                            child: Text('30 min before'),
+                          ),
+                          DropdownMenuItem(
+                            value: 60,
+                            child: Text('1 hour before'),
+                          ),
                         ],
                         onChanged: (value) {
                           if (value != null) {
@@ -421,7 +474,7 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
                 ],
               ),
             ],
-            
+
             const Divider(height: 32),
 
             // Focus Mode Section
@@ -430,9 +483,16 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
               children: [
                 Row(
                   children: [
-                    const Icon(PhosphorIconsRegular.timer, size: 20, color: AppColors.textPrimary),
+                    const Icon(
+                      PhosphorIconsRegular.timer,
+                      size: 20,
+                      color: AppColors.textPrimary,
+                    ),
                     const SizedBox(width: 8),
-                    Text('Focus Mode', style: AppTypography.textTheme.titleSmall),
+                    Text(
+                      'Focus Mode',
+                      style: AppTypography.textTheme.titleSmall,
+                    ),
                   ],
                 ),
                 Switch.adaptive(
@@ -446,8 +506,14 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Text('Duration: ', style: TextStyle(color: AppColors.textSecondary)),
-                  Text('${_focusDurationMinutes}m', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Duration: ',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                  Text(
+                    '${_focusDurationMinutes}m',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   Expanded(
                     child: Slider(
                       value: _focusDurationMinutes.toDouble(),
@@ -455,7 +521,8 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
                       max: 120,
                       divisions: 23,
                       activeColor: AppColors.rippleBlue,
-                      onChanged: (val) => setState(() => _focusDurationMinutes = val.toInt()),
+                      onChanged: (val) =>
+                          setState(() => _focusDurationMinutes = val.toInt()),
                     ),
                   ),
                 ],
@@ -476,9 +543,12 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
 
   Color _getPriorityColor(TodoPriority p) {
     switch (p) {
-      case TodoPriority.high: return AppColors.coralPink;
-      case TodoPriority.medium: return AppColors.warmTangerine;
-      case TodoPriority.low: return AppColors.rippleBlue;
+      case TodoPriority.high:
+        return AppColors.coralPink;
+      case TodoPriority.medium:
+        return AppColors.warmTangerine;
+      case TodoPriority.low:
+        return AppColors.rippleBlue;
     }
   }
 }
@@ -513,8 +583,20 @@ class _InfoTile extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
-                Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
           ],

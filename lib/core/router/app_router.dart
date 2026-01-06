@@ -11,6 +11,7 @@ import '../../features/todo/presentation/pages/todo_detail_page.dart';
 import '../../features/todo/presentation/pages/focus_timer_page.dart';
 import '../../features/notes/presentation/pages/notes_page.dart';
 import '../../features/notes/presentation/pages/note_editor_page.dart';
+import '../../features/folder/presentation/pages/folder_detail_page.dart';
 import '../../features/milestone/presentation/pages/goals_dashboard_page.dart';
 import '../../features/milestone/presentation/pages/goal_detail_page.dart';
 import '../../features/milestone/presentation/bloc/milestone_detail_bloc.dart';
@@ -34,18 +35,16 @@ class AppRouter {
         return null;
       },
       routes: [
-        GoRoute(
-          path: '/login',
-          builder: (context, state) => const LoginPage(),
-        ),
+        GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
         // Goal Detail - outside shell for full screen detail
         GoRoute(
           path: '/goals/:goalId',
           builder: (context, state) {
             final goalId = state.pathParameters['goalId']!;
             return BlocProvider(
-              create: (_) => sl<MilestoneDetailBloc>()
-                ..add(MilestoneDetailSubscriptionRequested(goalId)),
+              create: (_) =>
+                  sl<MilestoneDetailBloc>()
+                    ..add(MilestoneDetailSubscriptionRequested(goalId)),
               child: GoalDetailPage(goalId: goalId),
             );
           },
@@ -64,37 +63,41 @@ class AppRouter {
           routes: [
             GoRoute(
               path: '/',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: TodosPage(),
-              ),
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: TodosPage()),
             ),
             GoRoute(
               path: '/notes',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: NotesPage(),
-              ),
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: NotesPage()),
             ),
             // Note Editor - now inside shell to show navbar
             GoRoute(
               path: '/notes/editor/:noteId',
               pageBuilder: (context, state) {
                 final noteId = state.pathParameters['noteId']!;
+                return NoTransitionPage(child: NoteEditorPage(noteId: noteId));
+              },
+            ),
+            // Folder Detail - view notes in a folder
+            GoRoute(
+              path: '/notes/folder/:folderId',
+              pageBuilder: (context, state) {
+                final folderId = state.pathParameters['folderId']!;
                 return NoTransitionPage(
-                  child: NoteEditorPage(noteId: noteId),
+                  child: FolderDetailPage(folderId: folderId),
                 );
               },
             ),
             GoRoute(
               path: '/focus',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: FocusTimerPage(),
-              ),
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: FocusTimerPage()),
             ),
             GoRoute(
               path: '/goals',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: GoalsDashboardPage(),
-              ),
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: GoalsDashboardPage()),
             ),
           ],
         ),
@@ -108,8 +111,8 @@ class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
     notifyListeners();
     _subscription = stream.asBroadcastStream().listen(
-          (dynamic _) => notifyListeners(),
-        );
+      (dynamic _) => notifyListeners(),
+    );
   }
 
   late final StreamSubscription<dynamic> _subscription;

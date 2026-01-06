@@ -43,52 +43,38 @@ class _TodosPageState extends State<TodosPage> {
     return BlocBuilder<TodosOverviewBloc, TodosOverviewState>(
       builder: (context, state) {
         final viewMode = state.viewMode;
-        
+
         return Scaffold(
           body: SafeArea(
             child: Column(
               children: [
                 // ========== FIXED HEADER SECTION ==========
                 // This section stays fixed at top while content scrolls
-                
+
                 // Top spacing for better visual breathing room
                 const SizedBox(height: 8),
-                
+
                 // Page Header with title and actions
                 RipplePageHeader(
                   title: viewMode == TodosViewMode.list ? 'Tasks' : 'Schedule',
-                  subtitle: viewMode == TodosViewMode.list 
-                      ? 'Stay focused and organized.' 
+                  subtitle: viewMode == TodosViewMode.list
+                      ? 'Stay focused and organized.'
                       : 'Your day at a glance.',
-                  action: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Hamburger menu placeholder
-                      IconButton(
-                        icon: const Icon(PhosphorIconsRegular.list),
-                        tooltip: 'Menu',
-                        onPressed: () {
-                          // TODO: Open menu
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(PhosphorIconsRegular.signOut),
-                        tooltip: 'Logout',
-                        onPressed: () {
-                          context.read<AuthBloc>().add(AuthLogoutRequested());
-                        },
-                      ),
-                    ],
+                  action: IconButton(
+                    icon: const Icon(PhosphorIconsRegular.signOut),
+                    tooltip: 'Logout',
+                    onPressed: () {
+                      context.read<AuthBloc>().add(AuthLogoutRequested());
+                    },
                   ),
                 ),
-                
+
                 // View Mode Toggle Switch
                 _buildViewModeToggle(context, viewMode),
-                
+
                 // Filter bar (only show in list mode)
-                if (viewMode == TodosViewMode.list)
-                  _TodosFilterBar(),
-                
+                if (viewMode == TodosViewMode.list) _TodosFilterBar(),
+
                 // ========== SCROLLABLE CONTENT SECTION ==========
                 // This section scrolls independently from the header
                 Expanded(
@@ -122,7 +108,7 @@ class _TodosPageState extends State<TodosPage> {
                 icon: PhosphorIconsRegular.listChecks,
                 isSelected: currentMode == TodosViewMode.list,
                 onTap: () => context.read<TodosOverviewBloc>().add(
-                  const TodosOverviewViewModeChanged(TodosViewMode.list)
+                  const TodosOverviewViewModeChanged(TodosViewMode.list),
                 ),
               ),
             ),
@@ -132,7 +118,7 @@ class _TodosPageState extends State<TodosPage> {
                 icon: PhosphorIconsRegular.calendarBlank,
                 isSelected: currentMode == TodosViewMode.schedule,
                 onTap: () => context.read<TodosOverviewBloc>().add(
-                  const TodosOverviewViewModeChanged(TodosViewMode.schedule)
+                  const TodosOverviewViewModeChanged(TodosViewMode.schedule),
                 ),
               ),
             ),
@@ -151,12 +137,12 @@ class _TodosPageState extends State<TodosPage> {
             child: Center(child: CircularProgressIndicator()),
           );
         }
-        
+
         final todos = state.filteredTodos.toList();
-        
+
         if (todos.isEmpty) {
           if (state.status == TodosOverviewStatus.initial) {
-             return const SliverFillRemaining(
+            return const SliverFillRemaining(
               child: Center(child: Text('Loading tasks...')),
             );
           }
@@ -173,33 +159,30 @@ class _TodosPageState extends State<TodosPage> {
         return SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final todo = todos[index];
-                return TodoItem(
-                  todo: todo,
-                  onCheckboxChanged: (val) {
-                    context.read<TodosOverviewBloc>().add(
-                      TodosOverviewTodoSaved(
-                        todo.copyWith(
-                          isCompleted: val ?? false,
-                          completedAt: (val ?? false) ? DateTime.now() : null,
-                        ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final todo = todos[index];
+              return TodoItem(
+                todo: todo,
+                onCheckboxChanged: (val) {
+                  context.read<TodosOverviewBloc>().add(
+                    TodosOverviewTodoSaved(
+                      todo.copyWith(
+                        isCompleted: val ?? false,
+                        completedAt: (val ?? false) ? DateTime.now() : null,
                       ),
-                    );
-                  },
-                  onTap: () {
-                    _openEditSheet(context, todo: todo);
-                  },
-                  onStartFocus: () {
-                    // Start Focus Mode for this todo
-                    context.read<FocusTimerCubit>().startFocusForTodo(todo);
-                    context.go('/focus');
-                  },
-                );
-              },
-              childCount: todos.length,
-            ),
+                    ),
+                  );
+                },
+                onTap: () {
+                  _openEditSheet(context, todo: todo);
+                },
+                onStartFocus: () {
+                  // Start Focus Mode for this todo
+                  context.read<FocusTimerCubit>().startFocusForTodo(todo);
+                  context.go('/focus');
+                },
+              );
+            }, childCount: todos.length),
           ),
         );
       },
@@ -213,9 +196,9 @@ class _TodosPageState extends State<TodosPage> {
         if (state.status == TodosOverviewStatus.loading) {
           return const Center(child: CircularProgressIndicator());
         }
-        
+
         final todos = state.filteredTodos.toList();
-        
+
         if (todos.isEmpty) {
           if (state.status == TodosOverviewStatus.initial) {
             return const Center(child: Text('Loading tasks...'));
@@ -297,10 +280,7 @@ class _TodosPageState extends State<TodosPage> {
         textAlign: TextAlign.center,
       ),
       viewHeaderStyle: ViewHeaderStyle(
-        dayTextStyle: TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 12,
-        ),
+        dayTextStyle: TextStyle(color: AppColors.textSecondary, fontSize: 12),
         dateTextStyle: TextStyle(
           color: AppColors.textPrimary,
           fontWeight: FontWeight.w600,
@@ -312,10 +292,7 @@ class _TodosPageState extends State<TodosPage> {
         endHour: 23,
         timeInterval: const Duration(minutes: 60),
         timeIntervalHeight: 60,
-        timeTextStyle: TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 11,
-        ),
+        timeTextStyle: TextStyle(color: AppColors.textSecondary, fontSize: 11),
         timelineAppointmentHeight: 50,
       ),
       appointmentTextStyle: const TextStyle(
@@ -336,16 +313,19 @@ class _TodosPageState extends State<TodosPage> {
   }
 
   /// Build individual appointment widget for the calendar
-  Widget _buildAppointmentWidget(BuildContext context, CalendarAppointmentDetails details) {
+  Widget _buildAppointmentWidget(
+    BuildContext context,
+    CalendarAppointmentDetails details,
+  ) {
     final todo = details.appointments.first as Todo;
     final color = _getPriorityColor(todo.priority);
-    
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = constraints.maxHeight;
         final width = constraints.maxWidth;
         final canStackTime = height > 70;
-        
+
         // Format time strings
         String timeRange = '';
         String startStr = '';
@@ -357,11 +337,17 @@ class _TodosPageState extends State<TodosPage> {
           final endMin = todo.endTime!.minute;
           final startPeriod = startHour >= 12 ? 'PM' : 'AM';
           final endPeriod = endHour >= 12 ? 'PM' : 'AM';
-          final startH = startHour > 12 ? startHour - 12 : (startHour == 0 ? 12 : startHour);
-          final endH = endHour > 12 ? endHour - 12 : (endHour == 0 ? 12 : endHour);
-          
-          startStr = '${startH.toString().padLeft(2, '0')}:${startMin.toString().padLeft(2, '0')} $startPeriod';
-          endStr = '${endH.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')} $endPeriod';
+          final startH = startHour > 12
+              ? startHour - 12
+              : (startHour == 0 ? 12 : startHour);
+          final endH = endHour > 12
+              ? endHour - 12
+              : (endHour == 0 ? 12 : endHour);
+
+          startStr =
+              '${startH.toString().padLeft(2, '0')}:${startMin.toString().padLeft(2, '0')} $startPeriod';
+          endStr =
+              '${endH.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')} $endPeriod';
           timeRange = '$startStr - $endStr';
         }
 
@@ -376,7 +362,8 @@ class _TodosPageState extends State<TodosPage> {
             maxLines: 1,
             textDirection: TextDirection.ltr,
           )..layout(maxWidth: width - 24);
-          timeOverflows = textPainter.didExceedMaxLines || textPainter.width > (width - 24);
+          timeOverflows =
+              textPainter.didExceedMaxLines || textPainter.width > (width - 24);
         }
 
         final bool useVerticalTime = canStackTime && timeOverflows;
@@ -423,7 +410,9 @@ class _TodosPageState extends State<TodosPage> {
                           color: Colors.white,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          decoration: todo.isCompleted ? TextDecoration.lineThrough : null,
+                          decoration: todo.isCompleted
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                         delay: const Duration(seconds: 6),
                       ),
@@ -431,10 +420,16 @@ class _TodosPageState extends State<TodosPage> {
                     if (todo.focusEnabled && !todo.isCompleted)
                       GestureDetector(
                         onTap: () {
-                          context.read<FocusTimerCubit>().startFocusForTodo(todo);
+                          context.read<FocusTimerCubit>().startFocusForTodo(
+                            todo,
+                          );
                           context.go('/focus');
                         },
-                        child: const Icon(PhosphorIconsFill.playCircle, size: 16, color: Colors.white),
+                        child: const Icon(
+                          PhosphorIconsFill.playCircle,
+                          size: 16,
+                          color: Colors.white,
+                        ),
                       ),
                   ],
                 ),
@@ -444,13 +439,29 @@ class _TodosPageState extends State<TodosPage> {
                   if (useVerticalTime)
                     Row(
                       children: [
-                        Icon(PhosphorIconsRegular.clock, size: 12, color: Colors.white.withValues(alpha: 0.8)),
+                        Icon(
+                          PhosphorIconsRegular.clock,
+                          size: 12,
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
                         const SizedBox(width: 4),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(startStr, style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.9))),
-                            Text(endStr, style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.9))),
+                            Text(
+                              startStr,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.white.withValues(alpha: 0.9),
+                              ),
+                            ),
+                            Text(
+                              endStr,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.white.withValues(alpha: 0.9),
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -458,12 +469,19 @@ class _TodosPageState extends State<TodosPage> {
                   else
                     Row(
                       children: [
-                        Icon(PhosphorIconsRegular.clock, size: 12, color: Colors.white.withValues(alpha: 0.8)),
+                        Icon(
+                          PhosphorIconsRegular.clock,
+                          size: 12,
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: AutoScrollText(
                             timeRange,
-                            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.9)),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.white.withValues(alpha: 0.9),
+                            ),
                             delay: const Duration(seconds: 6),
                           ),
                         ),
@@ -537,17 +555,18 @@ class _TodosPageState extends State<TodosPage> {
               fontWeight: FontWeight.w500,
             ),
             appointmentBuilder: (context, calendarAppointmentDetails) {
-              final todo = calendarAppointmentDetails.appointments.first as Todo;
+              final todo =
+                  calendarAppointmentDetails.appointments.first as Todo;
               final color = _getPriorityColor(todo.priority);
-              
+
               return LayoutBuilder(
                 builder: (context, constraints) {
                   final height = constraints.maxHeight;
                   final width = constraints.maxWidth;
                   final showDescription = height > 90;
                   // Allow vertical stacking of time if block is tall enough
-                  final canStackTime = height > 70; 
-                  
+                  final canStackTime = height > 70;
+
                   // Format time strings
                   String timeRange = '';
                   String startStr = '';
@@ -559,11 +578,17 @@ class _TodosPageState extends State<TodosPage> {
                     final endMin = todo.endTime!.minute;
                     final startPeriod = startHour >= 12 ? 'PM' : 'AM';
                     final endPeriod = endHour >= 12 ? 'PM' : 'AM';
-                    final startH = startHour > 12 ? startHour - 12 : (startHour == 0 ? 12 : startHour);
-                    final endH = endHour > 12 ? endHour - 12 : (endHour == 0 ? 12 : endHour);
-                    
-                    startStr = '${startH.toString().padLeft(2, '0')}:${startMin.toString().padLeft(2, '0')} $startPeriod';
-                    endStr = '${endH.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')} $endPeriod';
+                    final startH = startHour > 12
+                        ? startHour - 12
+                        : (startHour == 0 ? 12 : startHour);
+                    final endH = endHour > 12
+                        ? endHour - 12
+                        : (endHour == 0 ? 12 : endHour);
+
+                    startStr =
+                        '${startH.toString().padLeft(2, '0')}:${startMin.toString().padLeft(2, '0')} $startPeriod';
+                    endStr =
+                        '${endH.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')} $endPeriod';
                     timeRange = '$startStr - $endStr';
                   }
 
@@ -581,7 +606,9 @@ class _TodosPageState extends State<TodosPage> {
                       maxLines: 1,
                       textDirection: TextDirection.ltr,
                     )..layout(maxWidth: width - 24); // Account for padding/icon
-                    timeOverflows = textPainter.didExceedMaxLines || textPainter.width > (width - 24);
+                    timeOverflows =
+                        textPainter.didExceedMaxLines ||
+                        textPainter.width > (width - 24);
                   }
 
                   // Timer style (Vertical stack if overflow + tall, else single line auto-scroll)
@@ -594,16 +621,28 @@ class _TodosPageState extends State<TodosPage> {
                         TodosOverviewTodoSaved(
                           todo.copyWith(
                             isCompleted: !todo.isCompleted,
-                            completedAt: !todo.isCompleted ? DateTime.now() : null,
+                            completedAt: !todo.isCompleted
+                                ? DateTime.now()
+                                : null,
                           ),
                         ),
                       );
                     },
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-                      padding: const EdgeInsets.fromLTRB(6, 4, 6, 4), // Compact padding
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 2,
+                        vertical: 1,
+                      ),
+                      padding: const EdgeInsets.fromLTRB(
+                        6,
+                        4,
+                        6,
+                        4,
+                      ), // Compact padding
                       decoration: BoxDecoration(
-                        color: todo.isCompleted ? color.withValues(alpha: 0.5) : color,
+                        color: todo.isCompleted
+                            ? color.withValues(alpha: 0.5)
+                            : color,
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
@@ -627,9 +666,12 @@ class _TodosPageState extends State<TodosPage> {
                                   todo.title,
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 13, // Slightly reduced for better fit
+                                    fontSize:
+                                        13, // Slightly reduced for better fit
                                     fontWeight: FontWeight.w600,
-                                    decoration: todo.isCompleted ? TextDecoration.lineThrough : null,
+                                    decoration: todo.isCompleted
+                                        ? TextDecoration.lineThrough
+                                        : null,
                                   ),
                                   delay: const Duration(seconds: 6),
                                 ),
@@ -639,22 +681,32 @@ class _TodosPageState extends State<TodosPage> {
                                 if (!todo.isCompleted)
                                   GestureDetector(
                                     onTap: () {
-                                      context.read<FocusTimerCubit>().startFocusForTodo(todo);
+                                      context
+                                          .read<FocusTimerCubit>()
+                                          .startFocusForTodo(todo);
                                       context.go('/focus');
                                     },
-                                    child: const Icon(PhosphorIconsFill.playCircle, size: 16, color: Colors.white),
+                                    child: const Icon(
+                                      PhosphorIconsFill.playCircle,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
                                   )
                                 else
-                                  Icon(PhosphorIconsFill.target, size: 14, color: Colors.white.withValues(alpha: 0.9)),
+                                  Icon(
+                                    PhosphorIconsFill.target,
+                                    size: 14,
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                  ),
                               ],
                             ],
                           ),
-                          
+
                           // ROW 2: Time Display
                           if (timeRange.isNotEmpty) ...[
                             const SizedBox(height: 2),
                             if (useVerticalTime)
-                              // Vertical Stack: 
+                              // Vertical Stack:
                               // Start
                               // End
                               Row(
@@ -662,16 +714,25 @@ class _TodosPageState extends State<TodosPage> {
                                 children: [
                                   Padding(
                                     padding: const EdgeInsets.only(top: 1),
-                                    child: Icon(PhosphorIconsRegular.clock, size: 12, color: Colors.white.withValues(alpha: 0.8)),
+                                    child: Icon(
+                                      PhosphorIconsRegular.clock,
+                                      size: 12,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.8,
+                                      ),
+                                    ),
                                   ),
                                   const SizedBox(width: 4),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         startStr,
                                         style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.9),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.9,
+                                          ),
                                           fontSize: 11,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -679,7 +740,9 @@ class _TodosPageState extends State<TodosPage> {
                                       Text(
                                         endStr,
                                         style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.9),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.9,
+                                          ),
                                           fontSize: 11,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -692,13 +755,19 @@ class _TodosPageState extends State<TodosPage> {
                               // Single Line (AutoScroll if overflow)
                               Row(
                                 children: [
-                                  Icon(PhosphorIconsRegular.clock, size: 12, color: Colors.white.withValues(alpha: 0.8)),
+                                  Icon(
+                                    PhosphorIconsRegular.clock,
+                                    size: 12,
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                  ),
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: AutoScrollText(
                                       timeRange,
                                       style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.9),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.9,
+                                        ),
                                         fontSize: 11,
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -710,7 +779,9 @@ class _TodosPageState extends State<TodosPage> {
                           ],
 
                           // ROW 3: Description (if space permits)
-                          if (showDescription && todo.description != null && todo.description!.isNotEmpty) ...[
+                          if (showDescription &&
+                              todo.description != null &&
+                              todo.description!.isNotEmpty) ...[
                             const SizedBox(height: 4),
                             Flexible(
                               child: Text(
@@ -728,11 +799,12 @@ class _TodosPageState extends State<TodosPage> {
                       ),
                     ),
                   );
-                }
+                },
               );
             },
             onTap: (CalendarTapDetails details) {
-              if (details.appointments == null || details.appointments!.isEmpty) {
+              if (details.appointments == null ||
+                  details.appointments!.isEmpty) {
                 if (details.targetElement == CalendarElement.calendarCell) {
                   final tappedDate = details.date;
                   if (tappedDate != null) {
@@ -748,7 +820,11 @@ class _TodosPageState extends State<TodosPage> {
     );
   }
 
-  void _openEditSheet(BuildContext context, {Todo? todo, DateTime? scheduledTime}) {
+  void _openEditSheet(
+    BuildContext context, {
+    Todo? todo,
+    DateTime? scheduledTime,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -764,9 +840,13 @@ class _TodosPageState extends State<TodosPage> {
             final userId = Supabase.instance.client.auth.currentUser?.id;
             if (userId != null && newTodo.userId.isEmpty) {
               final todoWithUser = newTodo.copyWith(userId: userId);
-              context.read<TodosOverviewBloc>().add(TodosOverviewTodoSaved(todoWithUser));
+              context.read<TodosOverviewBloc>().add(
+                TodosOverviewTodoSaved(todoWithUser),
+              );
             } else {
-              context.read<TodosOverviewBloc>().add(TodosOverviewTodoSaved(newTodo));
+              context.read<TodosOverviewBloc>().add(
+                TodosOverviewTodoSaved(newTodo),
+              );
             }
           },
         );
@@ -785,7 +865,12 @@ class _TodosPageState extends State<TodosPage> {
     }
   }
 
-  Widget _buildCheckbox(BuildContext context, Todo todo, Color color, double size) {
+  Widget _buildCheckbox(
+    BuildContext context,
+    Todo todo,
+    Color color,
+    double size,
+  ) {
     return GestureDetector(
       onTap: () {
         context.read<TodosOverviewBloc>().add(
@@ -865,28 +950,36 @@ class _ToggleButton extends StatelessWidget {
 class _TodosFilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final currentFilter = context.select((TodosOverviewBloc bloc) => bloc.state.filter);
-    
+    final currentFilter = context.select(
+      (TodosOverviewBloc bloc) => bloc.state.filter,
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Row(
         children: [
           _FilterChip(
-            label: 'All', 
+            label: 'All',
             isSelected: currentFilter == TodosViewFilter.all,
-            onTap: () => context.read<TodosOverviewBloc>().add(const TodosOverviewFilterChanged(TodosViewFilter.all)),
+            onTap: () => context.read<TodosOverviewBloc>().add(
+              const TodosOverviewFilterChanged(TodosViewFilter.all),
+            ),
           ),
           const SizedBox(width: 8),
           _FilterChip(
-            label: 'Active', 
+            label: 'Active',
             isSelected: currentFilter == TodosViewFilter.active,
-            onTap: () => context.read<TodosOverviewBloc>().add(const TodosOverviewFilterChanged(TodosViewFilter.active)),
+            onTap: () => context.read<TodosOverviewBloc>().add(
+              const TodosOverviewFilterChanged(TodosViewFilter.active),
+            ),
           ),
           const SizedBox(width: 8),
           _FilterChip(
-            label: 'Done', 
+            label: 'Done',
             isSelected: currentFilter == TodosViewFilter.completed,
-            onTap: () => context.read<TodosOverviewBloc>().add(const TodosOverviewFilterChanged(TodosViewFilter.completed)),
+            onTap: () => context.read<TodosOverviewBloc>().add(
+              const TodosOverviewFilterChanged(TodosViewFilter.completed),
+            ),
           ),
         ],
       ),
@@ -899,7 +992,11 @@ class _FilterChip extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _FilterChip({required this.label, required this.isSelected, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -910,7 +1007,9 @@ class _FilterChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected ? AppColors.inkBlack : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? AppColors.inkBlack : AppColors.softGray),
+          border: Border.all(
+            color: isSelected ? AppColors.inkBlack : AppColors.softGray,
+          ),
         ),
         child: Text(
           label,

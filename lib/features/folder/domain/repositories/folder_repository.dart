@@ -47,4 +47,10 @@ abstract class FolderRepository {
     String folderId,
     String? newParentId,
   );
+
+  /// Get all note IDs that are assigned to any folder
+  Future<Set<String>> getNoteIdsInFolders();
+
+  /// Get note counts per folder
+  Future<Map<String, int>> getFolderNoteCounts();
 }

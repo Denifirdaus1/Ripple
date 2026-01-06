@@ -16,7 +16,7 @@ import 'package:get_it/get_it.dart';
 /// Main shell page with bottom navigation bar for the 4 main features
 class MainShell extends StatefulWidget {
   final Widget child;
-  
+
   const MainShell({super.key, required this.child});
 
   @override
@@ -24,7 +24,8 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   void initState() {
     super.initState();
@@ -67,12 +68,14 @@ class _MainShellState extends State<MainShell> {
 
   void _onAddPressed() {
     final currentIndex = _calculateCurrentIndex(context);
-    
+
     switch (currentIndex) {
       case 0: // Todo
         final viewMode = context.read<TodosOverviewBloc>().state.viewMode;
         // If in schedule mode, default to now. If in list mode, null (not scheduled).
-        final scheduledTime = viewMode == TodosViewMode.schedule ? DateTime.now() : null;
+        final scheduledTime = viewMode == TodosViewMode.schedule
+            ? DateTime.now()
+            : null;
         _showTodoEditSheet(scheduledTime: scheduledTime);
         break;
       case 1: // Notes
@@ -101,9 +104,13 @@ class _MainShellState extends State<MainShell> {
             final userId = Supabase.instance.client.auth.currentUser?.id;
             if (userId != null && newTodo.userId.isEmpty) {
               final todoWithUser = newTodo.copyWith(userId: userId);
-              context.read<TodosOverviewBloc>().add(TodosOverviewTodoSaved(todoWithUser));
+              context.read<TodosOverviewBloc>().add(
+                TodosOverviewTodoSaved(todoWithUser),
+              );
             } else {
-              context.read<TodosOverviewBloc>().add(TodosOverviewTodoSaved(newTodo));
+              context.read<TodosOverviewBloc>().add(
+                TodosOverviewTodoSaved(newTodo),
+              );
             }
           },
         );
@@ -124,13 +131,14 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final currentIndex = _calculateCurrentIndex(context);
-    
+
     // Hide FAB on Focus tab and Note Editor (keyboard issue)
     final location = GoRouterState.of(context).uri.toString();
     final isNoteEditor = location.contains('/notes/editor');
     final shouldShowFab = currentIndex != 2 && !isNoteEditor;
-    
+
     return Scaffold(
+      key: _scaffoldKey,
       body: widget.child,
       floatingActionButton: shouldShowFab
           ? RippleAddButton(onPressed: _onAddPressed)
@@ -172,7 +180,7 @@ class _AddGoalDialogState extends State<_AddGoalDialog> {
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
-      
+
       context.read<GoalListBloc>().add(GoalListGoalCreated(newGoal));
       Navigator.of(context).pop();
     }
@@ -192,10 +200,7 @@ class _AddGoalDialogState extends State<_AddGoalDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
-          onPressed: _submit,
-          child: const Text('Create'),
-        ),
+        ElevatedButton(onPressed: _submit, child: const Text('Create')),
       ],
     );
   }

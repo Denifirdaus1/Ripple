@@ -62,8 +62,11 @@ class DeleteFolder {
 class AddItemToFolder {
   final FolderRepository repository;
   AddItemToFolder(this.repository);
-  Future<FolderItem> call(String folderId, String entityType, String entityId) =>
-      repository.addItemToFolder(folderId, entityType, entityId);
+  Future<FolderItem> call(
+    String folderId,
+    String entityType,
+    String entityId,
+  ) => repository.addItemToFolder(folderId, entityType, entityId);
 }
 
 /// Remove item from folder
@@ -80,4 +83,18 @@ class MoveFolder {
   MoveFolder(this.repository);
   Future<void> call(String folderId, String? newParentId) =>
       repository.moveFolder(folderId, newParentId);
+}
+
+/// Get all note IDs that are in any folder
+class GetNoteIdsInFolders {
+  final FolderRepository repository;
+  GetNoteIdsInFolders(this.repository);
+  Future<Set<String>> call() => repository.getNoteIdsInFolders();
+}
+
+/// Get note counts per folder
+class GetFolderNoteCounts {
+  final FolderRepository repository;
+  GetFolderNoteCounts(this.repository);
+  Future<Map<String, int>> call() => repository.getFolderNoteCounts();
 }

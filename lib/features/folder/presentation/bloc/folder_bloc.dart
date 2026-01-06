@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/utils/logger.dart';
 import '../../domain/entities/folder.dart';
 import '../../domain/entities/folder_contents.dart';
+import '../../domain/errors/folder_exceptions.dart';
 import '../../domain/usecases/folder_usecases.dart';
 
 // ============================================
@@ -122,6 +123,10 @@ class FolderState extends Equatable {
   final List<Folder> folders;
   final String? selectedFolderId; // null = Inbox
   final FolderContents? selectedContents;
+  final bool isLoadingContents; // Loading state for folder contents
+  final Set<String>
+  noteIdsInFolders; // Note IDs that are assigned to any folder
+  final Map<String, int> folderNoteCounts; // Note count per folder
   final String? error;
 
   const FolderState({
@@ -129,6 +134,9 @@ class FolderState extends Equatable {
     this.folders = const [],
     this.selectedFolderId,
     this.selectedContents,
+    this.isLoadingContents = false,
+    this.noteIdsInFolders = const {},
+    this.folderNoteCounts = const {},
     this.error,
   });
 
@@ -150,26 +158,45 @@ class FolderState extends Equatable {
     }
   }
 
+  /// Check if a note is in any folder
+  bool isNoteInFolder(String noteId) => noteIdsInFolders.contains(noteId);
+
   FolderState copyWith({
     FolderStatus? status,
     List<Folder>? folders,
     String? selectedFolderId,
     FolderContents? selectedContents,
+    bool? isLoadingContents,
+    Set<String>? noteIdsInFolders,
+    Map<String, int>? folderNoteCounts,
     String? error,
     bool clearSelectedFolderId = false,
   }) {
     return FolderState(
       status: status ?? this.status,
       folders: folders ?? this.folders,
-      selectedFolderId:
-          clearSelectedFolderId ? null : (selectedFolderId ?? this.selectedFolderId),
+      selectedFolderId: clearSelectedFolderId
+          ? null
+          : (selectedFolderId ?? this.selectedFolderId),
       selectedContents: selectedContents ?? this.selectedContents,
+      isLoadingContents: isLoadingContents ?? this.isLoadingContents,
+      noteIdsInFolders: noteIdsInFolders ?? this.noteIdsInFolders,
+      folderNoteCounts: folderNoteCounts ?? this.folderNoteCounts,
       error: error,
     );
   }
 
   @override
-  List<Object?> get props => [status, folders, selectedFolderId, selectedContents, error];
+  List<Object?> get props => [
+    status,
+    folders,
+    selectedFolderId,
+    selectedContents,
+    isLoadingContents,
+    noteIdsInFolders,
+    folderNoteCounts,
+    error,
+  ];
 }
 
 // ============================================
@@ -186,6 +213,8 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
   final AddItemToFolder _addItemToFolder;
   final RemoveItemFromFolder _removeItemFromFolder;
   final MoveFolder _moveFolder;
+  final GetNoteIdsInFolders _getNoteIdsInFolders;
+  final GetFolderNoteCounts _getFolderNoteCounts;
 
   StreamSubscription<List<Folder>>? _foldersSubscription;
 
@@ -199,16 +228,20 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
     required AddItemToFolder addItemToFolder,
     required RemoveItemFromFolder removeItemFromFolder,
     required MoveFolder moveFolder,
-  })  : _getFoldersStream = getFoldersStream,
-        _getFolderContents = getFolderContents,
-        _getInboxContents = getInboxContents,
-        _createFolder = createFolder,
-        _updateFolder = updateFolder,
-        _deleteFolder = deleteFolder,
-        _addItemToFolder = addItemToFolder,
-        _removeItemFromFolder = removeItemFromFolder,
-        _moveFolder = moveFolder,
-        super(const FolderState()) {
+    required GetNoteIdsInFolders getNoteIdsInFolders,
+    required GetFolderNoteCounts getFolderNoteCounts,
+  }) : _getFoldersStream = getFoldersStream,
+       _getFolderContents = getFolderContents,
+       _getInboxContents = getInboxContents,
+       _createFolder = createFolder,
+       _updateFolder = updateFolder,
+       _deleteFolder = deleteFolder,
+       _addItemToFolder = addItemToFolder,
+       _removeItemFromFolder = removeItemFromFolder,
+       _moveFolder = moveFolder,
+       _getNoteIdsInFolders = getNoteIdsInFolders,
+       _getFolderNoteCounts = getFolderNoteCounts,
+       super(const FolderState()) {
     on<FolderSubscriptionRequested>(_onSubscriptionRequested);
     on<_FolderListUpdated>(_onFolderListUpdated);
     on<FolderContentsRequested>(_onContentsRequested);
@@ -227,24 +260,37 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
     FolderSubscriptionRequested event,
     Emitter<FolderState> emit,
   ) async {
-    AppLogger.d('Folder subscription requested');
+    AppLogger.d('[FolderBloc] Subscription requested');
     emit(state.copyWith(status: FolderStatus.loading));
     await _foldersSubscription?.cancel();
     _foldersSubscription = _getFoldersStream().listen(
       (folders) => add(_FolderListUpdated(folders)),
       onError: (e, s) {
-        AppLogger.e('Folder stream error', e, s);
-        emit(state.copyWith(status: FolderStatus.failure, error: e.toString()));
+        AppLogger.e('[FolderBloc] Stream error', e, s);
+        final error = FolderErrorHandler.handle(e, s);
+        emit(
+          state.copyWith(status: FolderStatus.failure, error: error.message),
+        );
       },
     );
   }
 
-  void _onFolderListUpdated(
+  Future<void> _onFolderListUpdated(
     _FolderListUpdated event,
     Emitter<FolderState> emit,
-  ) {
+  ) async {
     AppLogger.d('Folder list updated: ${event.folders.length} folders');
-    emit(state.copyWith(status: FolderStatus.success, folders: event.folders));
+    // Also refresh noteIdsInFolders and folderNoteCounts
+    final noteIds = await _getNoteIdsInFolders();
+    final counts = await _getFolderNoteCounts();
+    emit(
+      state.copyWith(
+        status: FolderStatus.success,
+        folders: event.folders,
+        noteIdsInFolders: noteIds,
+        folderNoteCounts: counts,
+      ),
+    );
   }
 
   Future<void> _onContentsRequested(
@@ -252,14 +298,34 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
     Emitter<FolderState> emit,
   ) async {
     try {
-      AppLogger.d('Loading folder contents: ${event.folderId}');
+      // Set loading state
+      emit(
+        state.copyWith(
+          isLoadingContents: true,
+          selectedFolderId: event.folderId,
+        ),
+      );
+
+      AppLogger.d('[FolderBloc] Loading folder contents: ${event.folderId}');
       final contents = await _getFolderContents(event.folderId);
-      emit(state.copyWith(
-        selectedFolderId: event.folderId,
-        selectedContents: contents,
-      ));
+      AppLogger.i('[FolderBloc] Contents loaded: ${contents.totalCount} items');
+      emit(
+        state.copyWith(
+          selectedFolderId: event.folderId,
+          selectedContents: contents,
+          isLoadingContents: false,
+        ),
+      );
     } catch (e, s) {
-      AppLogger.e('Failed to load folder contents', e, s);
+      AppLogger.e('[FolderBloc] Failed to load folder contents', e, s);
+      final error = FolderErrorHandler.handle(e, s);
+      emit(
+        state.copyWith(
+          status: FolderStatus.failure,
+          error: error.message,
+          isLoadingContents: false,
+        ),
+      );
     }
   }
 
@@ -270,10 +336,9 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
     try {
       AppLogger.d('Loading inbox contents');
       final contents = await _getInboxContents();
-      emit(state.copyWith(
-        selectedContents: contents,
-        clearSelectedFolderId: true,
-      ));
+      emit(
+        state.copyWith(selectedContents: contents, clearSelectedFolderId: true),
+      );
     } catch (e, s) {
       AppLogger.e('Failed to load inbox contents', e, s);
     }
@@ -284,11 +349,34 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
     Emitter<FolderState> emit,
   ) async {
     try {
-      AppLogger.d('Creating folder: ${event.name}');
+      // Validate name
+      if (event.name.trim().isEmpty) {
+        throw FolderInvalidNameException();
+      }
+
+      AppLogger.d('[FolderBloc] Creating folder: ${event.name}');
+
+      // Create temp folder for optimistic update
+      final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
+      final optimisticFolder = Folder(
+        id: tempId,
+        userId: '',
+        name: event.name.trim(),
+        parentFolderId: event.parentFolderId,
+        icon: event.icon,
+        color: event.color,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      // Optimistic update - immediately show new folder
+      emit(state.copyWith(folders: [...state.folders, optimisticFolder]));
+
+      // Create actual folder
       final folder = Folder(
         id: '',
-        userId: '', // Will be set by repository
-        name: event.name,
+        userId: '',
+        name: event.name.trim(),
         parentFolderId: event.parentFolderId,
         icon: event.icon,
         color: event.color,
@@ -296,9 +384,14 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
         updatedAt: DateTime.now(),
       );
       await _createFolder(folder);
-      // Stream will automatically update the list
+      AppLogger.i('[FolderBloc] Folder created successfully');
+
+      // Force re-subscribe to get the real folder with ID
+      add(FolderSubscriptionRequested());
     } catch (e, s) {
-      AppLogger.e('Failed to create folder', e, s);
+      AppLogger.e('[FolderBloc] Failed to create folder', e, s);
+      final error = FolderErrorHandler.handle(e, s);
+      emit(state.copyWith(error: error.message));
     }
   }
 
@@ -308,7 +401,10 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
   ) async {
     try {
       final folder = state.folders.firstWhere((f) => f.id == event.folderId);
-      final updated = folder.copyWith(name: event.newName, updatedAt: DateTime.now());
+      final updated = folder.copyWith(
+        name: event.newName,
+        updatedAt: DateTime.now(),
+      );
       await _updateFolder(updated);
     } catch (e, s) {
       AppLogger.e('Failed to rename folder', e, s);
@@ -336,13 +432,24 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
     Emitter<FolderState> emit,
   ) async {
     try {
+      AppLogger.d(
+        '[FolderBloc] Adding ${event.entityType} to folder: ${event.folderId}',
+      );
       await _addItemToFolder(event.folderId, event.entityType, event.entityId);
+      AppLogger.i('[FolderBloc] Item added successfully');
+
+      // Refresh noteIdsInFolders so notes page can filter
+      final noteIds = await _getNoteIdsInFolders();
+      emit(state.copyWith(noteIdsInFolders: noteIds));
+
       // Refresh selected folder contents if it's the target folder
       if (state.selectedFolderId == event.folderId) {
         add(FolderContentsRequested(event.folderId));
       }
     } catch (e, s) {
-      AppLogger.e('Failed to add item to folder', e, s);
+      AppLogger.e('[FolderBloc] Failed to add item to folder', e, s);
+      final error = FolderErrorHandler.handle(e, s);
+      emit(state.copyWith(error: error.message));
     }
   }
 
@@ -351,7 +458,11 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
     Emitter<FolderState> emit,
   ) async {
     try {
-      await _removeItemFromFolder(event.folderId, event.entityType, event.entityId);
+      await _removeItemFromFolder(
+        event.folderId,
+        event.entityType,
+        event.entityId,
+      );
       // Refresh selected folder contents
       if (state.selectedFolderId == event.folderId) {
         add(FolderContentsRequested(event.folderId));
@@ -361,10 +472,7 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
     }
   }
 
-  Future<void> _onMoved(
-    FolderMoved event,
-    Emitter<FolderState> emit,
-  ) async {
+  Future<void> _onMoved(FolderMoved event, Emitter<FolderState> emit) async {
     try {
       await _moveFolder(event.folderId, event.newParentId);
     } catch (e, s) {
@@ -382,10 +490,7 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
     emit(const FolderState());
   }
 
-  void _onSelected(
-    FolderSelected event,
-    Emitter<FolderState> emit,
-  ) {
+  void _onSelected(FolderSelected event, Emitter<FolderState> emit) {
     if (event.folderId == null) {
       add(InboxContentsRequested());
     } else {

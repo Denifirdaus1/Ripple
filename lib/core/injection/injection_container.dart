@@ -1,7 +1,6 @@
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/auth_usecases.dart';
@@ -45,13 +44,8 @@ final sl = GetIt.instance;
 Future<void> init() async {
   //! Features - Auth
   // Bloc
-  sl.registerFactory(
-    () => AuthBloc(
-      getAuthStream: sl(),
-      signOut: sl(),
-    ),
-  );
-  
+  sl.registerFactory(() => AuthBloc(getAuthStream: sl(), signOut: sl()));
+
   sl.registerFactory(
     () => LoginCubit(
       signInWithGoogle: sl(),
@@ -97,19 +91,15 @@ Future<void> init() async {
   sl.registerLazySingleton(() => DeleteTodo(sl()));
 
   // Repository
-  sl.registerLazySingleton<TodoRepository>(
-    () => TodoRepositoryImpl(),
-  );
+  sl.registerLazySingleton<TodoRepository>(() => TodoRepositoryImpl());
 
   // Focus Sessions
   sl.registerLazySingleton<FocusRepository>(
     () => FocusRepositoryImpl(supabase: sl()),
   );
-  
+
   // Focus Timer - Global singleton for background timer
-  sl.registerLazySingleton(
-    () => FocusTimerCubit(focusRepository: sl()),
-  );
+  sl.registerLazySingleton(() => FocusTimerCubit(focusRepository: sl()));
 
   //! Core
   // Add core dependencies here
@@ -119,7 +109,9 @@ Future<void> init() async {
   sl.registerLazySingleton<SupabaseClient>(() => Supabase.instance.client);
   // Notes
   sl.registerFactory(() => NoteBloc(getNotesStream: sl(), deleteNote: sl()));
-  sl.registerFactory(() => NoteEditorCubit(saveNote: sl(), getNote: sl(), searchMentions: sl()));
+  sl.registerFactory(
+    () => NoteEditorCubit(saveNote: sl(), getNote: sl(), searchMentions: sl()),
+  );
 
   // Use Cases
   sl.registerLazySingleton(() => GetNotesStream(sl()));
@@ -134,7 +126,10 @@ Future<void> init() async {
   );
 
   // Milestones
-  sl.registerFactory(() => GoalListBloc(getGoalsStream: sl(), createGoal: sl(), repository: sl()));
+  sl.registerFactory(
+    () =>
+        GoalListBloc(getGoalsStream: sl(), createGoal: sl(), repository: sl()),
+  );
   sl.registerFactory(() => MilestoneDetailBloc(repository: sl()));
 
   // Use Cases
@@ -184,6 +179,8 @@ Future<void> init() async {
       addItemToFolder: sl(),
       removeItemFromFolder: sl(),
       moveFolder: sl(),
+      getNoteIdsInFolders: sl(),
+      getFolderNoteCounts: sl(),
     ),
   );
 
@@ -197,6 +194,8 @@ Future<void> init() async {
   sl.registerLazySingleton(() => AddItemToFolder(sl()));
   sl.registerLazySingleton(() => RemoveItemFromFolder(sl()));
   sl.registerLazySingleton(() => MoveFolder(sl()));
+  sl.registerLazySingleton(() => GetNoteIdsInFolders(sl()));
+  sl.registerLazySingleton(() => GetFolderNoteCounts(sl()));
 
   // Repository
   sl.registerLazySingleton<FolderRepository>(

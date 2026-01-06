@@ -124,3 +124,17 @@
 | 19:03 | Buat Topic | TOPIC_004 | Universal Folder System |
 | 19:03 | Buat Plan | PLAN_036 | Universal Folder System Implementation |
 
+### 2026-01-06
+| Waktu | Aksi | Ref ID | Deskripsi |
+| :--- | :--- | :--- | :--- |
+| 07:20 | Implement | PLAN_036 Phase 5 | Folder UI: Drawer + Navbar button + Move to Folder in NoteEditor |
+| 10:32 | Buat Plan | PLAN_037 | Folder UI Redesign - Notes Integration |
+| 09:12 | Buat Finding | FIND_009 | FCM Notification Tidak Terkirim - Deep Research & Analysis |
+| 09:12 | Research | FIND_009 | Supabase logs, FCM v1 API, Flutter FCM troubleshooting |
+| 13:36 | Deep Research | FIND_010 | FlutterFire, permission_handler docs via Context7 & Exa MCP |
+| 13:36 | Buat Finding | FIND_010 | Izin Notifikasi Tidak Diminta Saat Fresh Install |
+| 13:40 | Buat Plan | PLAN_038 | Fix Notification Permission Request |
+| 13:47 | Implement | PLAN_038 | Added permission_handler, created NotificationPermissionHelper |
+| 13:47 | Verify | PLAN_038 | ✅ Modified files pass analysis, pre-existing test failure unrelated |
+
+

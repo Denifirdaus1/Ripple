@@ -17,6 +17,7 @@ import '../widgets/note_properties_section.dart';
 import '../../../../core/toolbar/toolbar.dart';
 import '../widgets/tag_selector_sheet.dart';
 import '../../../../core/properties/properties.dart';
+import '../../../folder/presentation/widgets/move_to_folder_sheet.dart';
 
 class NoteEditorPage extends StatelessWidget {
   final String noteId;
@@ -51,7 +52,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
   void initState() {
     super.initState();
     final cubit = context.read<NoteEditorCubit>();
-    
+
     // Listen to editor changes for auto-save
     _editorChangeSubscription = _controller.document.changes.listen((event) {
       if (!mounted) return;
@@ -103,9 +104,11 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
 
   void _onNoteLoaded(NoteEditorState state) {
     _titleController.text = state.note.title;
-    if (state.note.content.isNotEmpty && state.note.content.containsKey('ops')) {
+    if (state.note.content.isNotEmpty &&
+        state.note.content.containsKey('ops')) {
       try {
-        final ops = (state.note.content['ops'] as List).cast<Map<String, dynamic>>();
+        final ops = (state.note.content['ops'] as List)
+            .cast<Map<String, dynamic>>();
         _controller.document = Document.fromJson(ops);
       } catch (e) {
         // Fallback to empty if parse invalid
@@ -117,10 +120,10 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
     final cubit = context.read<NoteEditorCubit>();
     final content = _controller.document.toDelta().toJson();
     final title = _titleController.text.trim();
-    
+
     // Await save completion before popping
     await cubit.save({'ops': content}, title, isAutoSave: true);
-    
+
     // Notify NoteBloc to update list immediately
     if (mounted) {
       try {
@@ -144,9 +147,13 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
     if (todo != null && mounted) {
       final index = _controller.selection.baseOffset;
       final text = '@${todo.title}';
-      
+
       _controller.document.insert(index, text);
-      _controller.formatText(index, text.length, LinkAttribute('todo://${todo.id}'));
+      _controller.formatText(
+        index,
+        text.length,
+        LinkAttribute('todo://${todo.id}'),
+      );
       _controller.document.insert(index + text.length, ' ');
     }
   }
@@ -162,9 +169,9 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
       }
     }
   }
@@ -179,22 +186,23 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
   void _showDatePicker() async {
     final cubit = context.read<NoteEditorCubit>();
     final initial = cubit.state.note.noteDate ?? DateTime.now();
-    
+
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
-    
+
     if (picked != null) {
       cubit.updateDate(picked);
+      cubit.forceAutoSave();
     }
   }
 
   void _showPriorityPicker() {
     final cubit = context.read<NoteEditorCubit>();
-    
+
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -206,6 +214,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
               title: const Text('Tinggi'),
               onTap: () {
                 cubit.updatePriority(NotePriority.high);
+                cubit.forceAutoSave();
                 Navigator.pop(ctx);
               },
             ),
@@ -214,6 +223,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
               title: const Text('Sedang'),
               onTap: () {
                 cubit.updatePriority(NotePriority.medium);
+                cubit.forceAutoSave();
                 Navigator.pop(ctx);
               },
             ),
@@ -222,6 +232,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
               title: const Text('Rendah'),
               onTap: () {
                 cubit.updatePriority(NotePriority.low);
+                cubit.forceAutoSave();
                 Navigator.pop(ctx);
               },
             ),
@@ -230,6 +241,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
               title: const Text('Hapus Prioritas'),
               onTap: () {
                 cubit.updatePriority(null);
+                cubit.forceAutoSave();
                 Navigator.pop(ctx);
               },
             ),
@@ -241,7 +253,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
 
   void _showTagsEditor() {
     final cubit = context.read<NoteEditorCubit>();
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -257,12 +269,12 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
           ),
         ),
       ),
-    );
+    ).then((_) => cubit.forceAutoSave());
   }
 
   void _showStatusPicker() {
     final cubit = context.read<NoteEditorCubit>();
-    
+
     showModalBottomSheet(
       context: context,
       builder: (ctx) => Container(
@@ -282,6 +294,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
               title: const Text('Belum Dimulai'),
               onTap: () {
                 cubit.updateStatus(NoteWorkStatus.notStarted);
+                cubit.forceAutoSave();
                 Navigator.pop(ctx);
               },
             ),
@@ -297,6 +310,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
               title: const Text('Sedang Berjalan'),
               onTap: () {
                 cubit.updateStatus(NoteWorkStatus.inProgress);
+                cubit.forceAutoSave();
                 Navigator.pop(ctx);
               },
             ),
@@ -312,6 +326,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
               title: const Text('Selesai'),
               onTap: () {
                 cubit.updateStatus(NoteWorkStatus.done);
+                cubit.forceAutoSave();
                 Navigator.pop(ctx);
               },
             ),
@@ -320,6 +335,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
               title: const Text('Hapus Status'),
               onTap: () {
                 cubit.updateStatus(null);
+                cubit.forceAutoSave();
                 Navigator.pop(ctx);
               },
             ),
@@ -349,24 +365,26 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
       child: BlocBuilder<NoteEditorCubit, NoteEditorState>(
         builder: (context, state) {
           if (state.status == NoteEditorStatus.loading) {
-            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
           }
 
           return PopScope(
-            canPop: false,  // Block automatic pop to handle save first
+            canPop: false, // Block automatic pop to handle save first
             onPopInvokedWithResult: (didPop, result) async {
               if (didPop) return;
-              
+
               final cubit = context.read<NoteEditorCubit>();
-              
+
               // Skip save and NoteSaved if note was deleted
               if (!cubit.state.isDeleted) {
                 // Save and notify NoteBloc before popping
                 final content = _controller.document.toDelta().toJson();
                 final title = _titleController.text.trim();
-                
+
                 await cubit.save({'ops': content}, title, isAutoSave: true);
-                
+
                 // Notify NoteBloc to update list immediately
                 if (context.mounted) {
                   try {
@@ -374,7 +392,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                   } catch (_) {}
                 }
               }
-              
+
               // Manual pop after save completes (or skip if deleted)
               if (context.mounted) {
                 Navigator.of(context).pop();
@@ -386,16 +404,22 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                 backgroundColor: AppColors.background,
                 elevation: 0,
                 leading: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                  icon: const Icon(
+                    Icons.arrow_back,
+                    color: AppColors.textPrimary,
+                  ),
                   onPressed: _saveAndPop,
                 ),
                 actions: [
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_horiz, color: AppColors.textPrimary),
+                    icon: const Icon(
+                      Icons.more_horiz,
+                      color: AppColors.textPrimary,
+                    ),
                     onSelected: (value) async {
                       debugPrint('[NoteEditor] PopupMenu selected: $value');
                       final cubit = context.read<NoteEditorCubit>();
-                      
+
                       switch (value) {
                         case 'favorite':
                           debugPrint('[NoteEditor] Toggling favorite');
@@ -407,7 +431,9 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: const Text('Hapus Note'),
-                              content: const Text('Apakah Anda yakin ingin menghapus note ini?'),
+                              content: const Text(
+                                'Apakah Anda yakin ingin menghapus note ini?',
+                              ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
@@ -415,12 +441,15 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                                 ),
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, true),
-                                  child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                                  child: const Text(
+                                    'Hapus',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
                                 ),
                               ],
                             ),
                           );
-                          
+
                           debugPrint('[NoteEditor] Delete confirm: $confirm');
                           if (confirm == true && context.mounted) {
                             final noteId = cubit.state.note.id;
@@ -428,19 +457,36 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                             if (context.mounted) {
                               // Notify NoteBloc to update list immediately (optimistic)
                               try {
-                                context.read<NoteBloc>().add(NoteRemovedFromList(noteId));
+                                context.read<NoteBloc>().add(
+                                  NoteRemovedFromList(noteId),
+                                );
                               } catch (_) {}
                               Navigator.of(context).pop();
                             }
+                          }
+                          break;
+                        case 'move_folder':
+                          debugPrint('[NoteEditor] Move to folder requested');
+                          final noteId = cubit.state.note.id;
+                          if (noteId.isNotEmpty && context.mounted) {
+                            await MoveToFolderSheet.show(
+                              context,
+                              entityType: 'note',
+                              entityId: noteId,
+                            );
                           }
                           break;
                       }
                     },
                     itemBuilder: (_) {
                       debugPrint('[NoteEditor] Building popup menu items');
-                      final isFavorite = context.read<NoteEditorCubit>().state.note.isFavorite;
+                      final isFavorite = context
+                          .read<NoteEditorCubit>()
+                          .state
+                          .note
+                          .isFavorite;
                       debugPrint('[NoteEditor] isFavorite: $isFavorite');
-                      
+
                       return [
                         PopupMenuItem(
                           value: 'favorite',
@@ -449,10 +495,30 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                               Icon(
                                 isFavorite ? Icons.star : Icons.star_outline,
                                 size: 20,
-                                color: isFavorite ? Colors.amber : AppColors.textSecondary,
+                                color: isFavorite
+                                    ? Colors.amber
+                                    : AppColors.textSecondary,
                               ),
                               const SizedBox(width: 12),
-                              Text(isFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit'),
+                              Text(
+                                isFavorite
+                                    ? 'Hapus dari Favorit'
+                                    : 'Tambah ke Favorit',
+                              ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'move_folder',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.drive_file_move_rounded,
+                                size: 20,
+                                color: AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 12),
+                              const Text('Pindahkan ke Folder'),
                             ],
                           ),
                         ),
@@ -460,9 +526,16 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                           value: 'delete',
                           child: Row(
                             children: [
-                              Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                              Icon(
+                                Icons.delete_outline,
+                                size: 20,
+                                color: Colors.red,
+                              ),
                               SizedBox(width: 12),
-                              Text('Hapus', style: TextStyle(color: Colors.red)),
+                              Text(
+                                'Hapus',
+                                style: TextStyle(color: Colors.red),
+                              ),
                             ],
                           ),
                         ),
@@ -486,7 +559,9 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                               focusNode: _titleFocusNode,
                               onChanged: (val) {
                                 final cubit = context.read<NoteEditorCubit>();
-                                final content = _controller.document.toDelta().toJson();
+                                final content = _controller.document
+                                    .toDelta()
+                                    .toJson();
                                 cubit.onTextChanged({'ops': content}, val);
                               },
                               decoration: const InputDecoration(
@@ -510,9 +585,9 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                               ),
                             ),
                           ),
-                          
+
                           const SizedBox(height: 8),
-                          
+
                           // Properties Section
                           NotePropertiesSection(
                             enabledPropertyIds: state.enabledPropertyIds,
@@ -527,15 +602,19 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                             onPriorityTap: _showPriorityPicker,
                             onStatusTap: _showStatusPicker,
                             onDescriptionChanged: (value) {
-                              context.read<NoteEditorCubit>().updateDescription(value);
+                              context.read<NoteEditorCubit>().updateDescription(
+                                value,
+                              );
                             },
                             onAddProperty: (propertyId) {
-                              context.read<NoteEditorCubit>().enableProperty(propertyId);
+                              context.read<NoteEditorCubit>().enableProperty(
+                                propertyId,
+                              );
                             },
                           ),
-                          
+
                           const SizedBox(height: 16),
-                          
+
                           // Editor Content
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -544,9 +623,13 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                               focusNode: _editorFocusNode,
                               config: QuillEditorConfig(
                                 placeholder: 'Catat sesuatu',
-                                expands: false,  // Allow content to determine height
-                                padding: const EdgeInsets.only(bottom: 300), // Safe space for scroll
-                                embedBuilders: FlutterQuillEmbeds.editorBuilders(),
+                                expands:
+                                    false, // Allow content to determine height
+                                padding: const EdgeInsets.only(
+                                  bottom: 300,
+                                ), // Safe space for scroll
+                                embedBuilders:
+                                    FlutterQuillEmbeds.editorBuilders(),
                                 onLaunchUrl: (url) {
                                   _handleLinkTap(url);
                                 },
@@ -557,7 +640,7 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
                       ),
                     ),
                   ),
-                  
+
                   // Keyboard Toolbar (shows when editor focused)
                   if (_isEditorFocused)
                     ExtensibleToolbar(

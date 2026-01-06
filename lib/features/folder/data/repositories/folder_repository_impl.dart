@@ -16,7 +16,8 @@ import '../models/folder_item_model.dart';
 class FolderRepositoryImpl implements FolderRepository {
   final SupabaseClient _supabase;
 
-  FolderRepositoryImpl({required SupabaseClient supabase}) : _supabase = supabase;
+  FolderRepositoryImpl({required SupabaseClient supabase})
+    : _supabase = supabase;
 
   @override
   Stream<List<Folder>> getFoldersStream() {
@@ -33,7 +34,7 @@ class FolderRepositoryImpl implements FolderRepository {
   Future<FolderContents> getFolderContents(String folderId) async {
     try {
       AppLogger.d('Fetching folder contents: $folderId');
-      
+
       // Step 1: Get all folder_items for this folder
       final itemsResponse = await _supabase
           .from('folder_items')
@@ -63,7 +64,9 @@ class FolderRepositoryImpl implements FolderRepository {
       final notes = await _batchFetchNotes(noteIds);
       final todos = await _batchFetchTodos(todoIds);
 
-      AppLogger.i('Folder contents loaded: ${notes.length} notes, ${todos.length} todos');
+      AppLogger.i(
+        'Folder contents loaded: ${notes.length} notes, ${todos.length} todos',
+      );
       return FolderContents(notes: notes, todos: todos);
     } catch (e, s) {
       AppLogger.e('Failed to get folder contents', e, s);
@@ -75,13 +78,13 @@ class FolderRepositoryImpl implements FolderRepository {
   Future<FolderContents> getInboxContents() async {
     try {
       AppLogger.d('Fetching inbox contents (items without folder)');
-      
+
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('User not authenticated');
 
       // Anti-join: Get notes NOT in any folder
       final notesResponse = await _supabase.rpc('get_inbox_notes');
-      
+
       // Anti-join: Get todos NOT in any folder
       final todosResponse = await _supabase.rpc('get_inbox_todos');
 
@@ -92,7 +95,9 @@ class FolderRepositoryImpl implements FolderRepository {
           .map((json) => TodoModel.fromJson(json))
           .toList();
 
-      AppLogger.i('Inbox contents loaded: ${notes.length} notes, ${todos.length} todos');
+      AppLogger.i(
+        'Inbox contents loaded: ${notes.length} notes, ${todos.length} todos',
+      );
       return FolderContents(notes: notes, todos: todos);
     } catch (e, s) {
       AppLogger.e('Failed to get inbox contents', e, s);
@@ -104,17 +109,17 @@ class FolderRepositoryImpl implements FolderRepository {
   /// Fallback method using client-side anti-join
   Future<FolderContents> _getInboxContentsFallback() async {
     AppLogger.d('Using fallback inbox query');
-    
+
     // Get all folder_items
     final folderItemsResponse = await _supabase
         .from('folder_items')
         .select('entity_type, entity_id');
-    
+
     final noteIdsInFolders = (folderItemsResponse as List)
         .where((item) => item['entity_type'] == 'note')
         .map((item) => item['entity_id'] as String)
         .toSet();
-    
+
     final todoIdsInFolders = (folderItemsResponse)
         .where((item) => item['entity_type'] == 'todo')
         .map((item) => item['entity_id'] as String)
@@ -129,7 +134,7 @@ class FolderRepositoryImpl implements FolderRepository {
         .where((json) => !noteIdsInFolders.contains(json['id']))
         .map((json) => NoteModel.fromJson(json))
         .toList();
-    
+
     final inboxTodos = (allTodosResponse as List)
         .where((json) => !todoIdsInFolders.contains(json['id']))
         .map((json) => TodoModel.fromJson(json))
@@ -141,29 +146,19 @@ class FolderRepositoryImpl implements FolderRepository {
   /// Batch fetch notes by IDs
   Future<List<Note>> _batchFetchNotes(List<String> ids) async {
     if (ids.isEmpty) return [];
-    
-    final response = await _supabase
-        .from('notes')
-        .select()
-        .inFilter('id', ids);
-    
-    return (response as List)
-        .map((json) => NoteModel.fromJson(json))
-        .toList();
+
+    final response = await _supabase.from('notes').select().inFilter('id', ids);
+
+    return (response as List).map((json) => NoteModel.fromJson(json)).toList();
   }
 
   /// Batch fetch todos by IDs
   Future<List<Todo>> _batchFetchTodos(List<String> ids) async {
     if (ids.isEmpty) return [];
-    
-    final response = await _supabase
-        .from('todos')
-        .select()
-        .inFilter('id', ids);
-    
-    return (response as List)
-        .map((json) => TodoModel.fromJson(json))
-        .toList();
+
+    final response = await _supabase.from('todos').select().inFilter('id', ids);
+
+    return (response as List).map((json) => TodoModel.fromJson(json)).toList();
   }
 
   @override
@@ -176,7 +171,7 @@ class FolderRepositoryImpl implements FolderRepository {
           .insert(model.toInsertJson())
           .select()
           .single();
-      
+
       AppLogger.i('Folder created successfully');
       return FolderModel.fromJson(response);
     } catch (e, s) {
@@ -196,7 +191,7 @@ class FolderRepositoryImpl implements FolderRepository {
           .eq('id', folder.id)
           .select()
           .single();
-      
+
       AppLogger.i('Folder updated successfully');
       return FolderModel.fromJson(response);
     } catch (e, s) {
@@ -234,7 +229,7 @@ class FolderRepositoryImpl implements FolderRepository {
           })
           .select()
           .single();
-      
+
       AppLogger.i('Item added to folder successfully');
       return FolderItemModel.fromJson(response);
     } catch (e, s) {
@@ -257,7 +252,7 @@ class FolderRepositoryImpl implements FolderRepository {
           .eq('folder_id', folderId)
           .eq('entity_type', entityType)
           .eq('entity_id', entityId);
-      
+
       AppLogger.i('Item removed from folder successfully');
     } catch (e, s) {
       AppLogger.e('Failed to remove item from folder', e, s);
@@ -269,20 +264,28 @@ class FolderRepositoryImpl implements FolderRepository {
   Future<void> moveFolder(String folderId, String? newParentId) async {
     try {
       AppLogger.d('Moving folder $folderId to parent: $newParentId');
-      
+
       // Check for circular dependency
       if (newParentId != null) {
-        final wouldLoop = await wouldCreateCircularDependency(folderId, newParentId);
+        final wouldLoop = await wouldCreateCircularDependency(
+          folderId,
+          newParentId,
+        );
         if (wouldLoop) {
-          throw Exception('Cannot move folder: would create circular dependency');
+          throw Exception(
+            'Cannot move folder: would create circular dependency',
+          );
         }
       }
 
       await _supabase
           .from('folders')
-          .update({'parent_folder_id': newParentId, 'updated_at': DateTime.now().toIso8601String()})
+          .update({
+            'parent_folder_id': newParentId,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
           .eq('id', folderId);
-      
+
       AppLogger.i('Folder moved successfully');
     } catch (e, s) {
       AppLogger.e('Failed to move folder', e, s);
@@ -317,5 +320,51 @@ class FolderRepositoryImpl implements FolderRepository {
     }
 
     return false;
+  }
+
+  @override
+  Future<Set<String>> getNoteIdsInFolders() async {
+    try {
+      final response = await _supabase
+          .from('folder_items')
+          .select('entity_id')
+          .eq('entity_type', 'note');
+
+      final noteIds = <String>{};
+      for (final row in response) {
+        final entityId = row['entity_id'] as String?;
+        if (entityId != null) {
+          noteIds.add(entityId);
+        }
+      }
+      AppLogger.d('Found ${noteIds.length} notes in folders');
+      return noteIds;
+    } catch (e, s) {
+      AppLogger.e('Failed to get note IDs in folders', e, s);
+      return {};
+    }
+  }
+
+  @override
+  Future<Map<String, int>> getFolderNoteCounts() async {
+    try {
+      final response = await _supabase
+          .from('folder_items')
+          .select('folder_id')
+          .eq('entity_type', 'note');
+
+      final counts = <String, int>{};
+      for (final row in response) {
+        final folderId = row['folder_id'] as String?;
+        if (folderId != null) {
+          counts[folderId] = (counts[folderId] ?? 0) + 1;
+        }
+      }
+      AppLogger.d('Folder note counts: $counts');
+      return counts;
+    } catch (e, s) {
+      AppLogger.e('Failed to get folder note counts', e, s);
+      return {};
+    }
   }
 }

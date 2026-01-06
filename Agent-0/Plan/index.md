@@ -41,6 +41,7 @@
 | [PLAN_034](PLAN_034_notes_menu_actions.md) | Notes Menu Actions (Delete & Favorite) | 🔴 High | ✅ Implemented |
 | [PLAN_035](PLAN_035_fix_notes_list_update_after_delete.md) | Fix Notes List Update After Delete | 🔴 High | ✅ Implemented |
 | [PLAN_036](PLAN_036_universal_folder_system.md) | Universal Folder System | 🔴 High | ✅ Implemented |
+| [PLAN_037](PLAN_037_folder_ui_redesign.md) | Folder UI Redesign - Notes Integration | 🔴 High | 📋 Backlog |
 
 ## 📦 Arsip
 | ID | Judul | Status |

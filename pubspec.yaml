@@ -72,6 +72,8 @@ dependencies:
   syncfusion_flutter_core: ^32.1.21
   image_picker: ^1.2.1
   flutter_image_compress: ^2.4.0
+  # Runtime Permissions (Android 13+ Notification)
+  permission_handler: ^12.0.0+1
 
 dev_dependencies:
   flutter_test:
