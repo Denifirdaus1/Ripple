@@ -12,15 +12,25 @@ class NotificationService {
 
   NotificationService(this._repository);
 
+  /// Internal logging helper
+  void _log(String message) {
+    debugPrint('[NotificationService] $message');
+  }
+
   /// Requests notification permissions from the user.
   /// Uses platform-aware helper for Android 13+ compatibility.
   Future<bool> requestPermission() async {
-    return await NotificationPermissionHelper.requestPermission();
+    _log('requestPermission() called');
+    final result = await NotificationPermissionHelper.requestPermission();
+    _log('requestPermission() result: $result');
+    return result;
   }
 
   /// Checks if notification permission is currently granted.
   Future<bool> isPermissionGranted() async {
-    return await NotificationPermissionHelper.isGranted();
+    final result = await NotificationPermissionHelper.isGranted();
+    _log('isPermissionGranted(): $result');
+    return result;
   }
 
   /// Checks if permission is permanently denied (Android only).
@@ -36,11 +46,11 @@ class NotificationService {
   /// Initializes notification listeners and syncs token.
   /// Handles: fresh install, re-login, user change, long inactive periods.
   Future<void> initialize(String userId) async {
+    _log('initialize() called with userId: ${userId.substring(0, 8)}...');
+
     // CASE 1: Different user logged in (logout → login with different account)
     if (_currentUserId != null && _currentUserId != userId) {
-      if (kDebugMode) {
-        debugPrint('Different user detected, resetting notification state...');
-      }
+      _log('Different user detected, resetting notification state...');
       _isInitialized = false;
     }
 
@@ -48,8 +58,9 @@ class NotificationService {
     // Always sync token on initialize to ensure it's fresh
     _currentUserId = userId;
 
-    // Use platform-aware permission request (Android 13+ compatible)
-    final hasPermission = await requestPermission();
+    // Check permission status (don't request again, already done in main.dart)
+    final hasPermission = await isPermissionGranted();
+    _log('Permission status in initialize(): $hasPermission');
 
     if (hasPermission) {
       // Always sync token (even if already initialized)
@@ -58,31 +69,26 @@ class NotificationService {
 
       // Only set up listeners once
       if (!_isInitialized) {
-        if (kDebugMode) {
-          debugPrint('Setting up FCM listeners...');
-        }
+        _log('Setting up FCM listeners...');
 
         // Listen for Token Refresh
         _firebaseMessaging.onTokenRefresh.listen((newToken) {
-          if (kDebugMode) {
-            debugPrint('FCM Token refreshed, syncing...');
-          }
+          _log('FCM Token refreshed, syncing...');
           _repository.saveDeviceToken(newToken, userId);
         });
 
         // Handle Foreground Messages
         FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-          if (kDebugMode) {
-            debugPrint('Foreground message: ${message.notification?.title}');
-          }
+          _log('Foreground message: ${message.notification?.title}');
         });
 
         _isInitialized = true;
+        _log('FCM listeners initialized successfully');
+      } else {
+        _log('FCM listeners already initialized, skipped');
       }
     } else {
-      if (kDebugMode) {
-        debugPrint('Notification permission denied');
-      }
+      _log('Notification permission denied, skipping FCM setup');
     }
   }
 
@@ -90,9 +96,7 @@ class NotificationService {
   void reset() {
     _isInitialized = false;
     _currentUserId = null;
-    if (kDebugMode) {
-      debugPrint('NotificationService reset');
-    }
+    _log('NotificationService reset');
   }
 
   /// Force sync token (useful after long inactive period).
@@ -102,21 +106,19 @@ class NotificationService {
 
   /// Helper to get and save FCM token.
   Future<void> _syncToken(String userId) async {
+    _log('_syncToken() starting...');
     try {
       final token = await _firebaseMessaging.getToken();
       if (token != null) {
-        if (kDebugMode) {
-          debugPrint('FCM Token: ${token.substring(0, 20)}...');
-        }
+        _log('FCM Token obtained: ${token.substring(0, 20)}...');
         await _repository.saveDeviceToken(token, userId);
-        if (kDebugMode) {
-          debugPrint('FCM Token synced successfully');
-        }
+        _log('FCM Token synced successfully to database');
+      } else {
+        _log('FCM Token is null!');
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error syncing token: $e');
-      }
+    } catch (e, stack) {
+      _log('Error syncing token: $e');
+      _log('Stack: $stack');
     }
   }
 }
