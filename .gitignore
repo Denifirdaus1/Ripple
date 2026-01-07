@@ -63,4 +63,5 @@ build/
 script/
 supabase/
 test/
+web/
 GEMINI.md
