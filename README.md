@@ -1,4 +1,8 @@
-# Ripple 🌊
+<p align="center">
+  <img src="assets/images/Ripple_Icon.png" alt="Ripple Icon" width="120" />
+</p>
+
+# Ripple
 
 **Ripple** adalah aplikasi produktivitas *all-in-one* yang dibangun dengan Flutter. Aplikasi ini mengintegrasikan manajemen tugas, mode fokus, catatan, dan pelacakan tujuan ke dalam satu platform yang kohesif untuk membantu Anda mencapai lebih banyak hal setiap hari.
 
