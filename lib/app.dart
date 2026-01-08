@@ -8,6 +8,8 @@ import 'core/theme/app_theme.dart';
 import 'core/injection/injection_container.dart';
 import 'core/router/app_router.dart';
 import 'core/services/notification_navigation_service.dart';
+import 'core/services/remote_config_service.dart';
+import 'core/widgets/maintenance_screen.dart';
 import 'core/utils/notification_logger.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/todo/presentation/bloc/todos_overview_bloc.dart';
@@ -35,9 +37,10 @@ class _RippleAppState extends State<RippleApp> {
   /// This MUST be in StatefulWidget for proper lifecycle management
   Future<void> _setupInteractedMessage() async {
     NotificationLogger.init('Setting up FCM interaction handlers in app.dart');
-    
+
     // 1. Handle notification tap when app was TERMINATED
-    RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    RemoteMessage? initialMessage = await FirebaseMessaging.instance
+        .getInitialMessage();
     if (initialMessage != null) {
       NotificationLogger.fcmInitialMessage(
         initialMessage.notification?.title,
@@ -61,7 +64,7 @@ class _RippleAppState extends State<RippleApp> {
   void _handleMessage(RemoteMessage message) {
     final todoId = message.data['todo_id'] as String?;
     NotificationLogger.init('_handleMessage called with todo_id: $todoId');
-    
+
     if (todoId != null && todoId.isNotEmpty) {
       // Use Future.delayed to ensure navigation happens after build
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -79,22 +82,12 @@ class _RippleAppState extends State<RippleApp> {
           create: (_) => sl<AuthBloc>()..add(AuthSubscriptionRequested()),
         ),
         // Focus Timer Cubit - Global singleton for background timer
-        BlocProvider<FocusTimerCubit>(
-          create: (_) => sl<FocusTimerCubit>(),
-        ),
+        BlocProvider<FocusTimerCubit>(create: (_) => sl<FocusTimerCubit>()),
         // Data Blocs - DO NOT auto-subscribe, will be triggered by auth listener
-        BlocProvider<TodosOverviewBloc>(
-          create: (_) => sl<TodosOverviewBloc>(),
-        ),
-        BlocProvider<NoteBloc>(
-          create: (_) => sl<NoteBloc>(),
-        ),
-        BlocProvider<GoalListBloc>(
-          create: (_) => sl<GoalListBloc>(),
-        ),
-        BlocProvider<FolderBloc>(
-          create: (_) => sl<FolderBloc>(),
-        ),
+        BlocProvider<TodosOverviewBloc>(create: (_) => sl<TodosOverviewBloc>()),
+        BlocProvider<NoteBloc>(create: (_) => sl<NoteBloc>()),
+        BlocProvider<GoalListBloc>(create: (_) => sl<GoalListBloc>()),
+        BlocProvider<FolderBloc>(create: (_) => sl<FolderBloc>()),
       ],
       child: BlocListener<AuthBloc, AuthState>(
         listenWhen: (previous, current) {
@@ -106,13 +99,17 @@ class _RippleAppState extends State<RippleApp> {
         listener: (context, state) {
           if (state is Authenticated) {
             // User just logged in - trigger data subscriptions
-            context.read<TodosOverviewBloc>().add(TodosOverviewSubscriptionRequested());
+            context.read<TodosOverviewBloc>().add(
+              TodosOverviewSubscriptionRequested(),
+            );
             context.read<NoteBloc>().add(NoteSubscriptionRequested());
             context.read<GoalListBloc>().add(GoalListSubscriptionRequested());
             context.read<FolderBloc>().add(FolderSubscriptionRequested());
           } else if (state is Unauthenticated) {
             // User logged out - clear all data
-            context.read<TodosOverviewBloc>().add(TodosOverviewClearRequested());
+            context.read<TodosOverviewBloc>().add(
+              TodosOverviewClearRequested(),
+            );
             context.read<NoteBloc>().add(NoteClearRequested());
             context.read<GoalListBloc>().add(GoalListClearRequested());
             context.read<FolderBloc>().add(FolderClearRequested());
@@ -128,9 +125,15 @@ class _RippleAppState extends State<RippleApp> {
               routerConfig: router,
               // Set navigator key for notification navigation
               builder: (context, child) {
+                // Check maintenance mode
+                if (RemoteConfigService.instance.isMaintenanceMode) {
+                  return const MaintenanceScreen();
+                }
                 // Store context for notification navigation service
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  NotificationNavigationService.processPendingNavigation(context);
+                  NotificationNavigationService.processPendingNavigation(
+                    context,
+                  );
                 });
                 return child ?? const SizedBox.shrink();
               },
@@ -140,10 +143,7 @@ class _RippleAppState extends State<RippleApp> {
                 GlobalCupertinoLocalizations.delegate,
                 FlutterQuillLocalizations.delegate,
               ],
-              supportedLocales: const [
-                Locale('en', 'US'),
-                Locale('id', 'ID'),
-              ],
+              supportedLocales: const [Locale('en', 'US'), Locale('id', 'ID')],
             );
           },
         ),

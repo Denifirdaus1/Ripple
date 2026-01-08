@@ -42,6 +42,7 @@ import '../../features/folder/presentation/bloc/folder_bloc.dart';
 // Profile Feature
 import '../../features/profile/data/repositories/profile_repository_impl.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
+import '../../features/profile/presentation/bloc/profile_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -209,4 +210,7 @@ Future<void> init() async {
   //! Features - Profile
   // Repository
   sl.registerLazySingleton<ProfileRepository>(() => ProfileRepositoryImpl());
+
+  // Bloc - Global singleton to persist profile data across navigation
+  sl.registerLazySingleton(() => ProfileBloc(repository: sl()));
 }

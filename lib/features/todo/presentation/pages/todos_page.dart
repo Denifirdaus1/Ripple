@@ -7,6 +7,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/ripple_page_header.dart';
 import '../../../../core/widgets/auto_scroll_text.dart';
+import '../../../../core/widgets/promo_dialog.dart';
+import '../../../../core/services/banner_service.dart';
 import '../../domain/entities/todo.dart';
 import '../../data/datasources/todo_calendar_datasource.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -34,6 +36,22 @@ class _TodosPageState extends State<TodosPage> {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId != null) {
       sl<NotificationService>().initialize(userId);
+    }
+
+    // Check for promotional banner after frame is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForPromoBanner();
+    });
+  }
+
+  Future<void> _checkForPromoBanner() async {
+    // Only show banner to authenticated users
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final banner = await BannerService.instance.getActiveBanner();
+    if (banner != null && mounted) {
+      PromoDialog.show(context, banner);
     }
   }
 

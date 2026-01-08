@@ -3,12 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:app_settings/app_settings.dart';
+import 'package:get_it/get_it.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../bloc/profile_bloc.dart';
 import '../widgets/avatar_picker.dart';
-import '../../data/repositories/profile_repository_impl.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -25,16 +25,22 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _profileBloc = ProfileBloc(repository: ProfileRepositoryImpl());
+    // Use global singleton bloc - data persists across navigation
+    _profileBloc = GetIt.I<ProfileBloc>();
+
+    // Only load if not already loaded (state is initial)
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) {
+    if (userId != null && _profileBloc.state.status == ProfileStatus.initial) {
+      debugPrint('📱 [ProfilePage] First load - fetching profile');
       _profileBloc.add(ProfileLoadRequested(userId));
+    } else {
+      debugPrint('📱 [ProfilePage] Profile already in cache, skipping fetch');
     }
   }
 
   @override
   void dispose() {
-    _profileBloc.close();
+    // Don't close the bloc - it's a global singleton!
     _nameController.dispose();
     super.dispose();
   }

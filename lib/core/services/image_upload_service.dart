@@ -12,14 +12,15 @@ class ImageUploadService {
   ImageUploadService({
     required SupabaseClient supabaseClient,
     ImagePicker? picker,
-  })  : _supabaseClient = supabaseClient,
-        _picker = picker ?? ImagePicker();
+  }) : _supabaseClient = supabaseClient,
+       _picker = picker ?? ImagePicker();
 
   /// Picks an image from [source], compresses it, and uploads to Supabase.
   /// Returns the public URL of the uploaded image.
   Future<String?> pickAndUploadImage({
     required ImageSource source,
-    int quality = 50,  // Lower quality = smaller file size (90% reduction target)
+    int quality =
+        50, // Lower quality = smaller file size (90% reduction target)
     int maxWidth = 1200,
   }) async {
     try {
@@ -29,18 +30,23 @@ class ImageUploadService {
 
       final File originalFile = File(pickedFile.path);
       final String fileExt = pickedFile.path.split('.').last;
-      
+
       // 2. Compress Image
-      final String targetPath = '${originalFile.parent.path}/${const Uuid().v4()}_compressed.$fileExt';
-      final XFile? compressedFile = await FlutterImageCompress.compressAndGetFile(
+      final String targetPath =
+          '${originalFile.parent.path}/${const Uuid().v4()}_compressed.$fileExt';
+      final XFile?
+      compressedFile = await FlutterImageCompress.compressAndGetFile(
         originalFile.absolute.path,
         targetPath,
         quality: quality,
         minWidth: maxWidth,
-        minHeight: maxWidth, // Aspect ratio is preserved by package usually, but minWidth/Height acts as constraints
+        minHeight:
+            maxWidth, // Aspect ratio is preserved by package usually, but minWidth/Height acts as constraints
       );
 
-      final File fileToUpload = compressedFile != null ? File(compressedFile.path) : originalFile;
+      final File fileToUpload = compressedFile != null
+          ? File(compressedFile.path)
+          : originalFile;
 
       // 3. Upload to Supabase
       final userId = _supabaseClient.auth.currentUser?.id;
@@ -48,18 +54,23 @@ class ImageUploadService {
         throw Exception('User not logged in');
       }
 
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${const Uuid().v4().substring(0, 8)}.$fileExt';
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${const Uuid().v4().substring(0, 8)}.$fileExt';
       final path = '$userId/$fileName';
 
-      await _supabaseClient.storage.from('note-images').upload(
+      await _supabaseClient.storage
+          .from('note-images')
+          .upload(
             path,
             fileToUpload,
             fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
           );
 
-      // 4. Get Public URL
-      final publicUrl = _supabaseClient.storage.from('note-images').getPublicUrl(path);
-      
+      // Return storage path instead of public URL
+      // The SignedUrlService will generate signed URLs when displaying
+      // Format: bucket-name/path - this allows backward compatibility detection
+      final storagePath = 'note-images/$path';
+
       // Cleanup compressed file if it exists
       if (compressedFile != null) {
         try {
@@ -67,8 +78,8 @@ class ImageUploadService {
         } catch (_) {}
       }
 
-      AppLogger.i('Image uploaded successfully: $publicUrl');
-      return publicUrl;
+      AppLogger.i('Image uploaded successfully: $storagePath');
+      return storagePath;
     } catch (e) {
       AppLogger.e('Error uploading image', e);
       rethrow;

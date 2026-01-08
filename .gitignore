@@ -64,3 +64,5 @@ supabase/
 test/
 web/
 GEMINI.md
+
+sentry.properties

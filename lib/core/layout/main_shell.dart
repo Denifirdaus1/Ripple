@@ -42,27 +42,12 @@ class _MainShellState extends State<MainShell> {
 
   int _calculateCurrentIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
-    if (location.startsWith('/notes')) return 1;
-    if (location.startsWith('/focus')) return 2;
-    if (location.startsWith('/profile')) return 3;
-    return 0; // Default to Home (Todo)
+    return RippleBottomNavbar.getIndexForRoute(location);
   }
 
   void _onNavTapped(int index) {
-    switch (index) {
-      case 0:
-        context.go('/');
-        break;
-      case 1:
-        context.go('/notes');
-        break;
-      case 2:
-        context.go('/focus');
-        break;
-      case 3:
-        context.go('/profile');
-        break;
-    }
+    final route = RippleBottomNavbar.getRouteForIndex(index);
+    context.go(route);
   }
 
   void _onAddPressed() {

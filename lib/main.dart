@@ -10,11 +10,14 @@ import 'core/services/session_service.dart';
 import 'core/services/notification_navigation_service.dart';
 import 'core/services/timezone_service.dart';
 import 'core/services/notification_permission_helper.dart';
+import 'core/services/remote_config_service.dart';
 import 'core/utils/notification_logger.dart';
 import 'app.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/utils/app_bloc_observer.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+import 'core/config/sentry_config.dart';
 
 // Global instances for notification handling
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -191,8 +194,23 @@ Future<void> main() async {
 
   Bloc.observer = AppBlocObserver();
 
+  // Fetch remote config
+  NotificationLogger.init('Fetching remote config...');
+  await RemoteConfigService.instance.fetchConfigs();
+  NotificationLogger.init('Remote config loaded');
+
   NotificationLogger.init('Running app...');
-  runApp(const RippleApp());
+
+  // Initialize Sentry with best practices configuration
+  if (SentryConfig.isEnabled) {
+    await SentryFlutter.init(
+      SentryConfig.configure,
+      appRunner: () => runApp(SentryWidget(child: const RippleApp())),
+    );
+  } else {
+    // Run without Sentry if DSN is not configured
+    runApp(const RippleApp());
+  }
 }
 
 final supabase = Supabase.instance.client;

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_quill_extensions/flutter_quill_extensions.dart';
 import '../../../../core/services/image_upload_service.dart';
+import '../../../../core/services/signed_url_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../features/todo/domain/entities/todo.dart';
 import '../../../../core/injection/injection_container.dart';
@@ -102,18 +103,49 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
     }
   }
 
-  void _onNoteLoaded(NoteEditorState state) {
+  void _onNoteLoaded(NoteEditorState state) async {
     _titleController.text = state.note.title;
     if (state.note.content.isNotEmpty &&
         state.note.content.containsKey('ops')) {
       try {
         final ops = (state.note.content['ops'] as List)
             .cast<Map<String, dynamic>>();
-        _controller.document = Document.fromJson(ops);
+
+        // Resolve storage paths to signed URLs for images
+        final signedUrlService = SignedUrlService();
+        final resolvedOps = await _resolveImageUrls(ops, signedUrlService);
+
+        _controller.document = Document.fromJson(resolvedOps);
       } catch (e) {
         // Fallback to empty if parse invalid
+        debugPrint('[NoteEditor] Error loading document: $e');
       }
     }
+  }
+
+  /// Resolve storage paths in ops to signed URLs for display
+  Future<List<Map<String, dynamic>>> _resolveImageUrls(
+    List<Map<String, dynamic>> ops,
+    SignedUrlService signedUrlService,
+  ) async {
+    final resolved = <Map<String, dynamic>>[];
+    for (final op in ops) {
+      if (op.containsKey('insert') && op['insert'] is Map) {
+        final insert = op['insert'] as Map;
+        if (insert.containsKey('image')) {
+          final imagePath = insert['image'] as String;
+          // Resolve storage path to signed URL
+          final signedUrl = await signedUrlService.resolveUrl(imagePath);
+          resolved.add({
+            'insert': {'image': signedUrl},
+            if (op.containsKey('attributes')) 'attributes': op['attributes'],
+          });
+          continue;
+        }
+      }
+      resolved.add(op);
+    }
+    return resolved;
   }
 
   Future<void> _saveAndPop() async {
@@ -161,11 +193,34 @@ class _NoteEditorViewState extends State<_NoteEditorView> {
   Future<void> _handleImageUpload() async {
     final service = sl<ImageUploadService>();
     try {
-      final url = await service.pickAndUploadImage(source: ImageSource.gallery);
-      if (url != null) {
+      final storagePath = await service.pickAndUploadImage(
+        source: ImageSource.gallery,
+      );
+      if (storagePath != null) {
+        // Store the storage PATH in document (not signed URL)
+        // This ensures the path persists and can be resolved later
+        // Signed URLs expire after 1 hour!
         final index = _controller.selection.baseOffset;
         final length = _controller.selection.extentOffset - index;
-        _controller.replaceText(index, length, BlockEmbed.image(url), null);
+
+        // Insert the storage path first (this will be saved to DB)
+        _controller.replaceText(
+          index,
+          length,
+          BlockEmbed.image(storagePath),
+          null,
+        );
+
+        // Immediately reload document with resolved URLs for display
+        final signedUrlService = SignedUrlService();
+        final ops = _controller.document
+            .toDelta()
+            .toJson()
+            .cast<Map<String, dynamic>>();
+        final resolvedOps = await _resolveImageUrls(ops, signedUrlService);
+        _controller.document = Document.fromJson(resolvedOps);
+
+        setState(() {});
       }
     } catch (e) {
       if (mounted) {
