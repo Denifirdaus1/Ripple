@@ -35,9 +35,9 @@ class RippleBottomNavbar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _NavItem(
-                icon: PhosphorIconsRegular.checkSquare,
-                activeIcon: PhosphorIconsFill.checkSquare,
-                label: 'Todo',
+                icon: PhosphorIconsRegular.house,
+                activeIcon: PhosphorIconsFill.house,
+                label: 'Home',
                 isActive: currentIndex == 0,
                 onTap: () => onTap(0),
               ),
@@ -58,9 +58,9 @@ class RippleBottomNavbar extends StatelessWidget {
                 onTap: () => onTap(2),
               ),
               _NavItem(
-                icon: PhosphorIconsRegular.flag,
-                activeIcon: PhosphorIconsFill.flag,
-                label: 'Goals',
+                icon: PhosphorIconsRegular.user,
+                activeIcon: PhosphorIconsFill.user,
+                label: 'Profile',
                 isActive: currentIndex == 3,
                 onTap: () => onTap(3),
               ),
@@ -108,7 +108,9 @@ class _NavItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: isActive ? AppColors.rippleBlue : AppColors.textSecondary,
+                color: isActive
+                    ? AppColors.rippleBlue
+                    : AppColors.textSecondary,
               ),
             ),
           ],

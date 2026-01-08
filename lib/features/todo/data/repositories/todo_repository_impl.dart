@@ -8,7 +8,7 @@ class TodoRepositoryImpl implements TodoRepository {
   final SupabaseClient _supabase;
 
   TodoRepositoryImpl({SupabaseClient? supabase})
-      : _supabase = supabase ?? Supabase.instance.client;
+    : _supabase = supabase ?? Supabase.instance.client;
 
   @override
   Stream<List<Todo>> getTodosStream() {
@@ -16,6 +16,17 @@ class TodoRepositoryImpl implements TodoRepository {
     return _supabase
         .from('todos')
         .stream(primaryKey: ['id'])
+        .order('created_at')
+        .map((data) => data.map((json) => TodoModel.fromJson(json)).toList());
+  }
+
+  @override
+  Stream<List<Todo>> getSubtasksStream(String parentTodoId) {
+    AppLogger.d('Subscribing to subtasks stream for parent: $parentTodoId');
+    return _supabase
+        .from('todos')
+        .stream(primaryKey: ['id'])
+        .eq('parent_todo_id', parentTodoId)
         .order('created_at')
         .map((data) => data.map((json) => TodoModel.fromJson(json)).toList());
   }

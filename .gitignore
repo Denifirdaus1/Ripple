@@ -55,7 +55,6 @@ android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 
 # Project specific ignores
-Agent-0/
 .agent/
 .vscode/
 .idea/

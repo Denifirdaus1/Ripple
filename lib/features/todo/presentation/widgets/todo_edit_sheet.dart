@@ -10,17 +10,24 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/ripple_button.dart';
 import '../../../../core/widgets/ripple_input.dart';
 import '../../domain/entities/todo.dart';
+import '../../domain/entities/recurrence_rule.dart';
+import '../../data/models/recurrence_rule_model.dart';
+import 'recurrence_picker.dart';
 
 class TodoEditSheet extends StatefulWidget {
   final Todo? initialTodo;
   final DateTime? scheduledTime; // Pre-filled from calendar tap
   final ValueChanged<Todo> onSave;
 
+  /// Callback for subtasks to create (only for new todos)
+  final void Function(List<String> subtaskTitles)? onSubtasksCreated;
+
   const TodoEditSheet({
     super.key,
     this.initialTodo,
     this.scheduledTime,
     required this.onSave,
+    this.onSubtasksCreated,
   });
 
   @override
@@ -40,6 +47,14 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
   late int _reminderMinutes; // New: reminder time before start
+
+  // Recurrence
+  RecurrenceRule? _recurrenceRule;
+
+  // Subtasks (for new todo creation)
+  final List<String> _subtasks = [];
+  bool _isAddingSubtask = false;
+  final TextEditingController _subtaskController = TextEditingController();
 
   @override
   void initState() {
@@ -76,6 +91,9 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
 
     // Initialize reminder minutes
     _reminderMinutes = todo?.reminderMinutes ?? 5;
+
+    // Initialize recurrence rule
+    _recurrenceRule = todo?.parsedRecurrenceRule;
   }
 
   @override
@@ -178,7 +196,9 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
         endTime: endDateTime,
         reminderMinutes: _isScheduled ? _reminderMinutes : 5,
         milestoneId: widget.initialTodo!.milestoneId,
-        recurrenceRule: widget.initialTodo!.recurrenceRule,
+        recurrenceRule: _recurrenceRule != null
+            ? RecurrenceRuleModel.fromEntity(_recurrenceRule!).toJson()
+            : null,
         parentTodoId: widget.initialTodo!.parentTodoId,
         notificationSent: widget.initialTodo!.notificationSent,
         createdAt: widget.initialTodo!.createdAt,
@@ -198,12 +218,21 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
         startTime: startDateTime,
         endTime: endDateTime,
         reminderMinutes: _isScheduled ? _reminderMinutes : 5,
+        recurrenceRule: _recurrenceRule != null
+            ? RecurrenceRuleModel.fromEntity(_recurrenceRule!).toJson()
+            : null,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
     }
 
     widget.onSave(todo);
+
+    // Pass subtasks to parent (only for new todos)
+    if (widget.initialTodo == null && _subtasks.isNotEmpty) {
+      widget.onSubtasksCreated?.call(_subtasks);
+    }
+
     Navigator.of(context).pop();
   }
 
@@ -241,11 +270,9 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
               autofocus: widget.initialTodo == null,
             ),
             const SizedBox(height: 12),
-            RippleInput(
-              hintText: 'Notes (optional)',
-              controller: _descController,
-              maxLines: 2,
-            ),
+
+            // Subtasks Section (branching UI)
+            _buildSubtasksSection(),
             const SizedBox(height: 20),
 
             // Priority Section
@@ -475,6 +502,17 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
               ),
             ],
 
+            // Recurrence Section (only when scheduled)
+            if (_isScheduled) ...[
+              const SizedBox(height: 12),
+              RecurrencePicker(
+                initialRule: _recurrenceRule,
+                onChanged: (rule) {
+                  setState(() => _recurrenceRule = rule);
+                },
+              ),
+            ],
+
             const Divider(height: 32),
 
             // Focus Mode Section
@@ -539,6 +577,244 @@ class _TodoEditSheetState extends State<TodoEditSheet> {
         ),
       ),
     );
+  }
+
+  /// Build branching subtasks section with tree-like UI
+  Widget _buildSubtasksSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        Row(
+          children: [
+            Icon(
+              PhosphorIconsRegular.gitBranch,
+              size: 18,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Subtasks',
+              style: AppTypography.textTheme.labelLarge?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: _addSubtask,
+              icon: Icon(PhosphorIconsRegular.plus, size: 16),
+              label: const Text('Add'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.rippleBlue,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ),
+          ],
+        ),
+
+        // Subtask list with branching lines
+        if (_subtasks.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          ...List.generate(_subtasks.length, (index) {
+            final isLast = index == _subtasks.length - 1;
+            return _buildSubtaskItem(index, isLast);
+          }),
+        ],
+
+        // Empty state
+        if (_subtasks.isEmpty && !_isAddingSubtask)
+          Padding(
+            padding: const EdgeInsets.only(left: 26, top: 8),
+            child: Text(
+              'No subtasks yet',
+              style: AppTypography.textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondary,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+
+        // Inline add input
+        if (_isAddingSubtask)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Branch line for new item
+                SizedBox(
+                  width: 26,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 2,
+                        height: 16,
+                        color: AppColors.outlineGray,
+                      ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 2,
+                            color: AppColors.outlineGray,
+                          ),
+                          Icon(
+                            PhosphorIconsRegular.plusCircle,
+                            size: 12,
+                            color: AppColors.sageGreen,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _subtaskController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Subtask name...',
+                      hintStyle: TextStyle(color: AppColors.textSecondary),
+                      filled: true,
+                      fillColor: AppColors.softGray,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AppColors.outlineGray),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AppColors.outlineGray),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: AppColors.rippleBlue,
+                          width: 2,
+                        ),
+                      ),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              PhosphorIconsRegular.check,
+                              size: 20,
+                              color: AppColors.sageGreen,
+                            ),
+                            onPressed: _submitSubtask,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(
+                              PhosphorIconsRegular.x,
+                              size: 20,
+                              color: AppColors.textSecondary,
+                            ),
+                            onPressed: () {
+                              _subtaskController.clear();
+                              setState(() => _isAddingSubtask = false);
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ),
+                    ),
+                    style: AppTypography.textTheme.bodyMedium,
+                    onSubmitted: (_) => _submitSubtask(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSubtaskItem(int index, bool isLast) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Branch line indicator
+        SizedBox(
+          width: 26,
+          child: Column(
+            children: [
+              Container(width: 2, height: 16, color: AppColors.outlineGray),
+              Row(
+                children: [
+                  Container(width: 12, height: 2, color: AppColors.outlineGray),
+                  Icon(
+                    PhosphorIconsRegular.circle,
+                    size: 12,
+                    color: AppColors.rippleBlue,
+                  ),
+                ],
+              ),
+              if (!isLast)
+                Container(width: 2, height: 16, color: AppColors.outlineGray),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Subtask content
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.softGray,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.outlineGray),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _subtasks[index],
+                    style: AppTypography.textTheme.bodyMedium,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _removeSubtask(index),
+                  child: Icon(
+                    PhosphorIconsRegular.x,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _addSubtask() {
+    setState(() => _isAddingSubtask = true);
+  }
+
+  void _submitSubtask() {
+    if (_subtaskController.text.trim().isNotEmpty) {
+      setState(() {
+        _subtasks.add(_subtaskController.text.trim());
+        _subtaskController.clear();
+        _isAddingSubtask = false;
+      });
+    }
+  }
+
+  void _removeSubtask(int index) {
+    setState(() => _subtasks.removeAt(index));
   }
 
   Color _getPriorityColor(TodoPriority p) {

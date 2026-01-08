@@ -74,6 +74,7 @@ dependencies:
   flutter_image_compress: ^2.4.0
   # Runtime Permissions (Android 13+ Notification)
   permission_handler: ^12.0.0+1
+  app_settings: ^7.0.0
 
 dev_dependencies:
   flutter_test:
@@ -87,6 +88,14 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   bloc_test: ^10.0.0
   mocktail: ^1.0.4
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/Ripple_Icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/Ripple_Icon.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

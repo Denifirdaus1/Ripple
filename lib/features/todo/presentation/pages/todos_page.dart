@@ -16,7 +16,6 @@ import '../bloc/todos_overview_bloc.dart';
 import '../bloc/focus_timer_cubit.dart';
 import '../widgets/todo_edit_sheet.dart';
 import '../widgets/todo_item.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
 
 /// View modes are now managed by TodosOverviewBloc
 
@@ -60,13 +59,6 @@ class _TodosPageState extends State<TodosPage> {
                   subtitle: viewMode == TodosViewMode.list
                       ? 'Stay focused and organized.'
                       : 'Your day at a glance.',
-                  action: IconButton(
-                    icon: const Icon(PhosphorIconsRegular.signOut),
-                    tooltip: 'Logout',
-                    onPressed: () {
-                      context.read<AuthBloc>().add(AuthLogoutRequested());
-                    },
-                  ),
                 ),
 
                 // View Mode Toggle Switch
@@ -825,6 +817,9 @@ class _TodosPageState extends State<TodosPage> {
     Todo? todo,
     DateTime? scheduledTime,
   }) {
+    // Store pending subtasks to create after parent is saved
+    List<String>? pendingSubtasks;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -836,18 +831,83 @@ class _TodosPageState extends State<TodosPage> {
         return TodoEditSheet(
           initialTodo: todo,
           scheduledTime: scheduledTime,
-          onSave: (newTodo) {
+          onSave: (newTodo) async {
+            debugPrint('📝 [TodosPage] onSave called for: ${newTodo.title}');
             final userId = Supabase.instance.client.auth.currentUser?.id;
+            final bloc = context.read<TodosOverviewBloc>();
+
+            Todo todoToSave = newTodo;
             if (userId != null && newTodo.userId.isEmpty) {
-              final todoWithUser = newTodo.copyWith(userId: userId);
-              context.read<TodosOverviewBloc>().add(
-                TodosOverviewTodoSaved(todoWithUser),
-              );
-            } else {
-              context.read<TodosOverviewBloc>().add(
-                TodosOverviewTodoSaved(newTodo),
-              );
+              todoToSave = newTodo.copyWith(userId: userId);
             }
+
+            // Save parent todo
+            debugPrint(
+              '📝 [TodosPage] Saving parent todo: ${todoToSave.title}',
+            );
+            bloc.add(TodosOverviewTodoSaved(todoToSave));
+
+            // If we have pending subtasks, create them after a short delay
+            // to allow parent todo to be saved first
+            if (pendingSubtasks != null &&
+                pendingSubtasks!.isNotEmpty &&
+                userId != null) {
+              debugPrint(
+                '📝 [TodosPage] Found ${pendingSubtasks!.length} pending subtasks',
+              );
+
+              // Wait for parent to be saved (simple delay approach)
+              debugPrint('📝 [TodosPage] Waiting 500ms for parent save...');
+              await Future.delayed(const Duration(milliseconds: 500));
+
+              // Get the saved todo (it should have an ID now)
+              // For new todos, we need to find it by title
+              final state = bloc.state;
+              debugPrint(
+                '📝 [TodosPage] Searching for parent in ${state.todos.length} todos',
+              );
+              final savedParent = state.todos.firstWhere(
+                (t) => t.title == todoToSave.title && t.id.isNotEmpty,
+                orElse: () => todoToSave,
+              );
+
+              debugPrint(
+                '📝 [TodosPage] Found parent: id=${savedParent.id}, title=${savedParent.title}',
+              );
+
+              if (savedParent.id.isNotEmpty) {
+                // Create subtasks with parent reference
+                debugPrint(
+                  '📝 [TodosPage] Creating ${pendingSubtasks!.length} subtasks with parentId=${savedParent.id}',
+                );
+                for (final subtaskTitle in pendingSubtasks!) {
+                  final subtask = Todo(
+                    id: '',
+                    userId: userId,
+                    title: subtaskTitle,
+                    priority: savedParent.priority,
+                    parentTodoId: savedParent.id,
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                  );
+                  debugPrint('📝 [TodosPage] Saving subtask: $subtaskTitle');
+                  bloc.add(TodosOverviewTodoSaved(subtask));
+                }
+                debugPrint('✅ [TodosPage] All subtasks dispatched to bloc');
+              } else {
+                debugPrint(
+                  '❌ [TodosPage] Parent ID is empty, cannot create subtasks',
+                );
+              }
+            } else {
+              debugPrint('📝 [TodosPage] No subtasks to create');
+            }
+          },
+          onSubtasksCreated: (subtaskTitles) {
+            debugPrint(
+              '📝 [TodosPage] onSubtasksCreated: ${subtaskTitles.length} subtasks - $subtaskTitles',
+            );
+            pendingSubtasks = subtaskTitles;
           },
         );
       },

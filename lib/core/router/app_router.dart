@@ -12,9 +12,10 @@ import '../../features/todo/presentation/pages/focus_timer_page.dart';
 import '../../features/notes/presentation/pages/notes_page.dart';
 import '../../features/notes/presentation/pages/note_editor_page.dart';
 import '../../features/folder/presentation/pages/folder_detail_page.dart';
-import '../../features/milestone/presentation/pages/goals_dashboard_page.dart';
+
 import '../../features/milestone/presentation/pages/goal_detail_page.dart';
 import '../../features/milestone/presentation/bloc/milestone_detail_bloc.dart';
+import '../../features/profile/presentation/pages/profile_page.dart';
 import '../injection/injection_container.dart';
 
 class AppRouter {
@@ -95,9 +96,9 @@ class AppRouter {
                   const NoTransitionPage(child: FocusTimerPage()),
             ),
             GoRoute(
-              path: '/goals',
+              path: '/profile',
               pageBuilder: (context, state) =>
-                  const NoTransitionPage(child: GoalsDashboardPage()),
+                  const NoTransitionPage(child: ProfilePage()),
             ),
           ],
         ),

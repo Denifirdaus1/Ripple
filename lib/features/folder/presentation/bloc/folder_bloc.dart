@@ -438,9 +438,10 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
       await _addItemToFolder(event.folderId, event.entityType, event.entityId);
       AppLogger.i('[FolderBloc] Item added successfully');
 
-      // Refresh noteIdsInFolders so notes page can filter
+      // Refresh noteIdsInFolders and folderNoteCounts for real-time updates
       final noteIds = await _getNoteIdsInFolders();
-      emit(state.copyWith(noteIdsInFolders: noteIds));
+      final counts = await _getFolderNoteCounts();
+      emit(state.copyWith(noteIdsInFolders: noteIds, folderNoteCounts: counts));
 
       // Refresh selected folder contents if it's the target folder
       if (state.selectedFolderId == event.folderId) {
@@ -463,6 +464,12 @@ class FolderBloc extends Bloc<FolderEvent, FolderState> {
         event.entityType,
         event.entityId,
       );
+
+      // Refresh noteIdsInFolders and folderNoteCounts for real-time updates
+      final noteIds = await _getNoteIdsInFolders();
+      final counts = await _getFolderNoteCounts();
+      emit(state.copyWith(noteIdsInFolders: noteIds, folderNoteCounts: counts));
+
       // Refresh selected folder contents
       if (state.selectedFolderId == event.folderId) {
         add(FolderContentsRequested(event.folderId));

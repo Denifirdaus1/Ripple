@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'recurrence_rule.dart';
 
 enum TodoPriority { high, medium, low }
 
@@ -17,7 +18,7 @@ class Todo extends Equatable {
   final bool focusEnabled;
   final int? focusDurationMinutes;
   final String? milestoneId;
-  // New fields synced with DB
+  // Recurrence and hierarchy fields
   final Map<String, dynamic>? recurrenceRule;
   final String? parentTodoId;
   final bool notificationSent;
@@ -30,7 +31,7 @@ class Todo extends Equatable {
     required this.userId,
     required this.title,
     this.description,
-    this.priority = TodoPriority.medium,  // Match DB default
+    this.priority = TodoPriority.medium, // Match DB default
     this.isCompleted = false,
     this.completedAt,
     this.isScheduled = false,
@@ -60,11 +61,47 @@ class Todo extends Equatable {
   bool get isEmpty => this == Todo.empty;
   bool get isNotEmpty => this != Todo.empty;
 
-  /// Indicates if this is a recurring todo template
-  bool get isRecurring => recurrenceRule != null;
+  /// Indicates if this todo has a recurrence rule (is a recurring template)
+  bool get isRecurring => recurrenceRule != null && recurrenceRule!.isNotEmpty;
 
   /// Indicates if this is a child instance of a recurring todo
   bool get isRecurrenceInstance => parentTodoId != null;
+
+  /// Indicates if this is a subtask (has a parent todo)
+  bool get isSubtask => parentTodoId != null;
+
+  /// Parse the recurrenceRule JSON into a RecurrenceRule object
+  RecurrenceRule? get parsedRecurrenceRule {
+    if (recurrenceRule == null || recurrenceRule!.isEmpty) return null;
+
+    try {
+      final typeStr = recurrenceRule!['type'] as String? ?? 'weekly';
+      final type = RecurrenceType.values.firstWhere(
+        (t) => t.name == typeStr,
+        orElse: () => RecurrenceType.weekly,
+      );
+
+      final daysList = recurrenceRule!['days'] as List<dynamic>?;
+      final days = daysList?.map((d) => d as int).toList() ?? [];
+
+      final interval = recurrenceRule!['interval'] as int? ?? 1;
+
+      final untilStr = recurrenceRule!['until'] as String?;
+      final until = untilStr != null ? DateTime.tryParse(untilStr) : null;
+
+      final count = recurrenceRule!['count'] as int?;
+
+      return RecurrenceRule(
+        type: type,
+        days: days,
+        interval: interval,
+        until: until,
+        count: count,
+      );
+    } catch (e) {
+      return null;
+    }
+  }
 
   Todo copyWith({
     String? id,
@@ -113,25 +150,25 @@ class Todo extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        userId,
-        title,
-        description,
-        priority,
-        isCompleted,
-        completedAt,
-        isScheduled,
-        scheduledDate,
-        startTime,
-        endTime,
-        focusEnabled,
-        focusDurationMinutes,
-        milestoneId,
-        recurrenceRule,
-        parentTodoId,
-        notificationSent,
-        reminderMinutes,
-        createdAt,
-        updatedAt,
-      ];
+    id,
+    userId,
+    title,
+    description,
+    priority,
+    isCompleted,
+    completedAt,
+    isScheduled,
+    scheduledDate,
+    startTime,
+    endTime,
+    focusEnabled,
+    focusDurationMinutes,
+    milestoneId,
+    recurrenceRule,
+    parentTodoId,
+    notificationSent,
+    reminderMinutes,
+    createdAt,
+    updatedAt,
+  ];
 }

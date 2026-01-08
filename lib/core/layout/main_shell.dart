@@ -7,8 +7,7 @@ import '../widgets/ripple_bottom_navbar.dart';
 import '../widgets/ripple_add_button.dart';
 import '../../features/todo/presentation/bloc/todos_overview_bloc.dart';
 import '../../features/todo/presentation/widgets/todo_edit_sheet.dart';
-import '../../features/milestone/presentation/bloc/goal_list_bloc.dart';
-import '../../features/milestone/domain/entities/goal.dart';
+
 import '../services/notification_service.dart';
 import '../services/timezone_service.dart';
 import 'package:get_it/get_it.dart';
@@ -45,8 +44,8 @@ class _MainShellState extends State<MainShell> {
     final location = GoRouterState.of(context).uri.toString();
     if (location.startsWith('/notes')) return 1;
     if (location.startsWith('/focus')) return 2;
-    if (location.startsWith('/goals')) return 3;
-    return 0; // Default to Todo
+    if (location.startsWith('/profile')) return 3;
+    return 0; // Default to Home (Todo)
   }
 
   void _onNavTapped(int index) {
@@ -61,7 +60,7 @@ class _MainShellState extends State<MainShell> {
         context.go('/focus');
         break;
       case 3:
-        context.go('/goals');
+        context.go('/profile');
         break;
     }
   }
@@ -83,8 +82,7 @@ class _MainShellState extends State<MainShell> {
         break;
       case 2: // Focus - no add action needed
         break;
-      case 3: // Milestone
-        _showAddGoalDialog();
+      case 3: // Profile - no add action needed (or different one)
         break;
     }
   }
@@ -118,24 +116,15 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  void _showAddGoalDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => BlocProvider.value(
-        value: context.read<GoalListBloc>(),
-        child: const _AddGoalDialog(),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final currentIndex = _calculateCurrentIndex(context);
 
-    // Hide FAB on Focus tab and Note Editor (keyboard issue)
+    // Hide FAB on Focus tab, Profile tab, and Note Editor
     final location = GoRouterState.of(context).uri.toString();
     final isNoteEditor = location.contains('/notes/editor');
-    final shouldShowFab = currentIndex != 2 && !isNoteEditor;
+    final shouldShowFab =
+        currentIndex != 2 && currentIndex != 3 && !isNoteEditor;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -148,60 +137,6 @@ class _MainShellState extends State<MainShell> {
         currentIndex: currentIndex,
         onTap: _onNavTapped,
       ),
-    );
-  }
-}
-
-/// Dialog for adding a new goal (duplicated from goals_dashboard_page for now)
-class _AddGoalDialog extends StatefulWidget {
-  const _AddGoalDialog();
-
-  @override
-  State<_AddGoalDialog> createState() => _AddGoalDialogState();
-}
-
-class _AddGoalDialogState extends State<_AddGoalDialog> {
-  final _titleController = TextEditingController();
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final title = _titleController.text.trim();
-    if (title.isNotEmpty) {
-      final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
-      final newGoal = Goal(
-        id: '',
-        userId: userId,
-        title: title,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      context.read<GoalListBloc>().add(GoalListGoalCreated(newGoal));
-      Navigator.of(context).pop();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('New Goal'),
-      content: TextField(
-        controller: _titleController,
-        decoration: const InputDecoration(hintText: 'e.g. Learn Flutter'),
-        autofocus: true,
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(onPressed: _submit, child: const Text('Create')),
-      ],
     );
   }
 }

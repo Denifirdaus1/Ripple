@@ -39,6 +39,10 @@ import '../../features/folder/domain/repositories/folder_repository.dart';
 import '../../features/folder/domain/usecases/folder_usecases.dart';
 import '../../features/folder/presentation/bloc/folder_bloc.dart';
 
+// Profile Feature
+import '../../features/profile/data/repositories/profile_repository_impl.dart';
+import '../../features/profile/domain/repositories/profile_repository.dart';
+
 final sl = GetIt.instance;
 
 Future<void> init() async {
@@ -201,4 +205,8 @@ Future<void> init() async {
   sl.registerLazySingleton<FolderRepository>(
     () => FolderRepositoryImpl(supabase: sl()),
   );
+
+  //! Features - Profile
+  // Repository
+  sl.registerLazySingleton<ProfileRepository>(() => ProfileRepositoryImpl());
 }
