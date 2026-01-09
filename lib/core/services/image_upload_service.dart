@@ -66,10 +66,10 @@ class ImageUploadService {
             fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
           );
 
-      // Return storage path instead of public URL
-      // The SignedUrlService will generate signed URLs when displaying
-      // Format: bucket-name/path - this allows backward compatibility detection
-      final storagePath = 'note-images/$path';
+      // Get public URL (bucket is public, no signed URL needed)
+      final publicUrl = _supabaseClient.storage
+          .from('note-images')
+          .getPublicUrl(path);
 
       // Cleanup compressed file if it exists
       if (compressedFile != null) {
@@ -78,8 +78,8 @@ class ImageUploadService {
         } catch (_) {}
       }
 
-      AppLogger.i('Image uploaded successfully: $storagePath');
-      return storagePath;
+      AppLogger.i('Image uploaded successfully: $publicUrl');
+      return publicUrl;
     } catch (e) {
       AppLogger.e('Error uploading image', e);
       rethrow;
